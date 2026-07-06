@@ -1,0 +1,13 @@
+diff --git a/scripts/patch-openclaw-chat-send.js b/scripts/patch-openclaw-chat-send.js
+index 036a6493c..29572ed6d 100755
+--- a/scripts/patch-openclaw-chat-send.js
++++ b/scripts/patch-openclaw-chat-send.js
+@@ -201,7 +201,7 @@ function patchFollowupRunIdPreservation(source, file) {
+   );
+   if (nextSource === working) {
+     nextSource = working.replace(
+-      /(const admission = await admitReplyTurn\(\{\n\s*sessionId: run\.sessionId,\n\s*sessionKey: replySessionKey \?\? "",\n\s*kind: "queued_followup",\n\s*resetTriggered: false,\n\s*(?:routeThreadId: queued\.originatingThreadId,\n\s*)?upstreamAbortSignal: queued\.abortSignal\n\s*\}\);[\s\S]*?replyOperation = admission\.operation;[\s\S]*?\n\s*)const runId = crypto\.randomUUID\(\);/,
++      /(const admission = await admitReplyTurn\(\{\n\s*sessionId: (?:effectiveQueued\.admissionSessionId \?\? )?run\.sessionId,\n\s*sessionKey: replySessionKey \?\? "",\n\s*kind: "queued_followup",\n\s*resetTriggered: false,\n\s*(?:routeThreadId: queued\.originatingThreadId,\n\s*)?upstreamAbortSignal: queued\.abortSignal\n\s*\}\);[\s\S]*?replyOperation = admission\.operation;[\s\S]*?\n\s*)const runId = crypto\.randomUUID\(\);/,
+       (_match, prefix) =>
+         `${prefix}const runId = queued.runId ?? opts?.runId ?? crypto.randomUUID(); ` +
+         `// nemoclaw: preserve chat.send run ids in followup queue (#2603, #3145)`,

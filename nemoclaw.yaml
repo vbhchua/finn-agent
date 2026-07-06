@@ -1,0 +1,38 @@
+# nemoclaw.yaml — REFERENCE declaration of the finn sandbox (NemoClaw >= v0.0.67)
+#
+# This file documents the intended shape of the sandbox. On v0.0.67 the agent is
+# created with a plain `nemoclaw onboard --name finn` (stock base — no custom
+# Dockerfile), so this YAML is NOT consumed by the onboard; setup-finn.sh drives
+# the few runtime steps that remain. Kept as the at-a-glance spec.
+#
+# Out of the box from a stock onboard:
+#   * authenticating gateway (stock base ships nemoclaw-start)
+#   * web SEARCH = brave (BRAVE_API_KEY auto-injected by onboard)
+#   * proxy.loopbackMode=gateway-only, gateway.mode=local, tools.toolSearch=false
+#     (Nemotron model-specific manifest), tools.codeMode off — all DEFAULTS now.
+
+sandbox:
+  name: finn
+  harness: openclaw            # OpenClaw gateway (not Hermes)
+
+inference:
+  provider: nvidia             # → inference.local (NIM hosted)
+  model: nvidia/nemotron-3-super-120b-a12b
+
+# Search is brave (built in). Fetch is the optional Firecrawl layer that
+# setup-finn.sh adds at runtime when FIRECRAWL_API_KEY is set (full-page web_fetch
+# without per-site allow-listing). Calendar is the optional runmod-finn-live.sh add-on.
+capabilities:
+  search: brave                # out of the box
+  fetch: firecrawl             # optional; bundled stock extension, enabled at runtime
+  channels: [telegram]         # `nemoclaw finn channels add telegram` (token baked at rebuild)
+
+network_policies:              # applied at runtime via `policy-add` (no rebuild)
+  - firecrawl                  # fixes/firecrawl.yaml — web_fetch egress (api.firecrawl.dev)
+  # - ms-calendar              # fixes/ms-calendar.yaml — calendar add-on (graph + login)
+
+# Credentials are NOT baked into the image and are NOT injected via this file.
+# Messaging-channel tokens (Telegram) are baked at `channels add` rebuild time.
+# Generic keys (Firecrawl) are set into the plugin config at runtime by setup-finn.sh:
+#   export FIRECRAWL_API_KEY=...   # → plugins.entries.firecrawl.config.webFetch.apiKey
+#   export TELEGRAM_BOT_TOKEN=...  # → consumed by `channels add telegram`

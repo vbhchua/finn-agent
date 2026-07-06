@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>finn · Conference Radar — flow: current vs proposed</title>
+<style>
+  :root{
+    --green:#76b900; --green-d:#4a7600; --green-l:#eef6e0;
+    --ink:#15201a; --muted:#6b7280; --line:#dfe5da;
+    --bg:#ffffff; --panel:#f6f8f3; --chip:#eef2ea;
+    --bad:#d64545; --bad-l:#fbecec; --warn:#c47d04; --warn-l:#fdf4e3;
+    --shadow:0 1px 2px rgba(20,32,26,.06),0 6px 22px rgba(20,32,26,.07);
+    font-synthesis:none;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display","Helvetica Neue",system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+  .wrap{max-width:1180px;margin:0 auto;padding:34px 26px 70px}
+  header h1{font-size:25px;font-weight:680;letter-spacing:-.02em;margin:0 0 4px}
+  header h1 .g{color:var(--green-d)}
+  header p.sub{margin:0;color:var(--muted);font-size:14.5px;line-height:1.45;max-width:760px}
+
+  /* toggle */
+  .toggle{display:inline-flex;margin:22px 0 6px;background:var(--panel);border:1px solid var(--line);
+    border-radius:12px;padding:4px;gap:4px}
+  .toggle button{appearance:none;border:0;background:transparent;cursor:pointer;font:inherit;
+    font-weight:600;font-size:14px;color:var(--muted);padding:9px 18px;border-radius:9px;transition:.18s;
+    display:flex;align-items:center;gap:8px}
+  .toggle button .dot{width:8px;height:8px;border-radius:50%;background:currentColor;opacity:.55}
+  .toggle button[aria-pressed="true"]{background:#fff;box-shadow:var(--shadow)}
+  .toggle button.cur[aria-pressed="true"]{color:var(--bad)}
+  .toggle button.prop[aria-pressed="true"]{color:var(--warn)}
+  .toggle button.ship[aria-pressed="true"]{color:var(--green-d)}
+  .playbtn{appearance:none;border:1px solid var(--line);background:#fff;border-radius:10px;
+    font:inherit;font-weight:600;font-size:13.5px;color:var(--ink);padding:9px 15px;cursor:pointer;
+    margin-left:10px;transition:.15s}
+  .playbtn:hover{border-color:var(--green);color:var(--green-d)}
+
+  /* state banner */
+  .statebar{display:flex;align-items:center;gap:12px;margin:14px 0 18px;padding:11px 16px;border-radius:12px;
+    border:1px solid var(--line);font-size:14px;font-weight:600}
+  body[data-state="current"] .statebar{background:var(--bad-l);border-color:#f3cccc;color:#9c2f2f}
+  body[data-state="proposed"] .statebar{background:var(--warn-l);border-color:#eedaa8;color:var(--warn)}
+  body[data-state="shipped"] .statebar{background:var(--green-l);border-color:#cfe3a8;color:var(--green-d)}
+  .statebar .tag{font-size:11px;letter-spacing:.06em;text-transform:uppercase;padding:3px 9px;border-radius:99px;background:#fff;border:1px solid currentColor}
+
+  /* metrics */
+  .metrics{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:26px}
+  .metric{background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:13px 14px;min-height:92px}
+  .metric .k{font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);font-weight:600;line-height:1.25}
+  .metric .v{font-size:21px;font-weight:700;letter-spacing:-.02em;margin-top:8px;line-height:1.05}
+  .metric .n{font-size:11.5px;color:var(--muted);margin-top:3px}
+  .metric.bad .v{color:var(--bad)}
+  .metric.good .v{color:var(--green-d)}
+  @media(max-width:920px){.metrics{grid-template-columns:repeat(3,1fr)}}
+
+  /* pipeline */
+  .pipe{display:flex;align-items:stretch;gap:0;overflow-x:auto;padding:6px 2px 18px}
+  .stage{flex:1 1 0;min-width:185px;background:#fff;border:1px solid var(--line);border-radius:14px;
+    padding:14px 14px 13px;box-shadow:var(--shadow);position:relative;cursor:pointer;transition:.18s;
+    display:flex;flex-direction:column}
+  .stage:hover{border-color:var(--green);transform:translateY(-2px)}
+  .stage.lit{box-shadow:0 0 0 2px var(--green),var(--shadow)}
+  .stage.break,.stage.dead{border-color:#f0bcbc}
+  .stage.break.lit,.stage.dead.lit{box-shadow:0 0 0 2px var(--bad),var(--shadow)}
+  .stage.warn{border-color:#eccf93}
+  .stage .ico{font-size:20px;line-height:1}
+  .stage h3{font-size:14.5px;margin:9px 0 1px;letter-spacing:-.01em}
+  .stage .ssub{font-size:11.5px;color:var(--muted);font-weight:600;margin-bottom:9px}
+  .stage ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:5px}
+  .stage li{font-size:12px;line-height:1.3;color:#33403a;padding-left:13px;position:relative}
+  .stage li:before{content:"";position:absolute;left:1px;top:6px;width:5px;height:5px;border-radius:50%;background:var(--green)}
+  .stage.break li:before,.stage.dead li:before{background:#c9a0a0}
+  .stage .badge{position:absolute;top:-10px;right:10px;font-size:10.5px;font-weight:700;letter-spacing:.02em;
+    padding:3px 8px;border-radius:99px;color:#fff;white-space:nowrap}
+  .stage.break .badge,.stage.dead .badge{background:var(--bad)}
+  .stage.warn .badge{background:var(--warn)}
+  .stage .count{position:absolute;top:12px;right:12px;font-size:11px;font-weight:700;color:var(--green-d);
+    background:var(--green-l);border:1px solid #cfe3a8;border-radius:99px;padding:2px 8px}
+  .stage.break .count,.stage.dead .count{color:var(--bad);background:var(--bad-l);border-color:#f0bcbc}
+
+  .conn{flex:0 0 30px;display:flex;align-items:center;justify-content:center;color:var(--line)}
+  .conn svg{width:30px;height:22px}
+  .conn.ok{color:var(--green)} .conn.bad{color:var(--bad)}
+  @media(max-width:920px){.pipe{flex-direction:column}.conn{flex-basis:26px;transform:rotate(90deg)}}
+
+  /* fan-out chips */
+  .fan{margin-top:10px;display:flex;flex-wrap:wrap;gap:5px}
+  .chip{font-size:10.5px;font-weight:600;border-radius:7px;padding:3px 6px;border:1px solid var(--line);
+    background:var(--chip);color:var(--muted);line-height:1}
+  .chip.due{background:var(--green-l);border-color:#cfe3a8;color:var(--green-d)}
+  .chip .t{opacity:.8}
+
+  /* detail + table */
+  .grid2{display:grid;grid-template-columns:1.15fr .85fr;gap:22px;margin-top:8px}
+  @media(max-width:920px){.grid2{grid-template-columns:1fr}}
+  .detail{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:17px 18px;min-height:150px}
+  .detail .dh{font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:9px}
+  .detail h4{margin:0 0 7px;font-size:16px;letter-spacing:-.01em}
+  .detail p{margin:0 0 9px;font-size:13.5px;line-height:1.5;color:#33403a}
+  .detail code{background:#fff;border:1px solid var(--line);border-radius:5px;padding:1px 5px;font-size:12px;
+    font-family:"SF Mono",ui-monospace,Menlo,monospace}
+  .detail .hint{font-size:12px;color:var(--muted);font-style:italic}
+
+  table.cmp{width:100%;border-collapse:collapse;font-size:13px;background:#fff;border:1px solid var(--line);
+    border-radius:14px;overflow:hidden}
+  table.cmp th,table.cmp td{padding:9px 12px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+  table.cmp th{font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);background:var(--panel)}
+  table.cmp td.lab{font-weight:600;color:var(--ink);width:34%}
+  table.cmp td.cur{color:#9c2f2f} table.cmp td.prop{color:var(--warn)} table.cmp td.ship{color:var(--green-d);font-weight:600}
+  table.cmp tr:last-child td{border-bottom:0}
+
+  .notecard{margin-top:22px;background:#fff;border:1px solid var(--line);border-left:3px solid var(--green);
+    border-radius:12px;padding:14px 17px;font-size:13px;line-height:1.5;color:#33403a}
+  .notecard b{color:var(--ink)}
+  footer.legend{margin-top:26px;display:flex;flex-wrap:wrap;gap:16px;font-size:11.5px;color:var(--muted);
+    border-top:1px solid var(--line);padding-top:14px}
+  footer.legend span{display:inline-flex;align-items:center;gap:6px}
+  footer.legend i{width:10px;height:10px;border-radius:3px;display:inline-block}
+  .shake{animation:shake .42s}
+  @keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-5px)}40%{transform:translateX(5px)}60%{transform:translateX(-3px)}80%{transform:translateX(3px)}}
+</style>
+</head>
+<body data-state="shipped">
+<div class="wrap">
+  <header>
+    <h1><span class="g">finn</span> · Conference Radar — <span class="g">diagnosis · proposal · shipped</span></h1>
+    <p class="sub">Feature 4 of finn's proactive layer: re-check the <b>upcoming Singapore AI events</b> (9 at diagnosis time) in Notion, update each, and ping Victor on Telegram when something material changes (new keynote / NVIDIA confirmed / date or venue move). Click any node for detail. Toggle the three states.</p>
+    <div style="margin:16px 0 0;padding:12px 16px;border:1px solid #cfe3a8;border-radius:12px;background:var(--green-l,#eef6e0);font-size:13.5px;line-height:1.5;color:#3c5d00">
+      <b>OUTCOME — what actually shipped (2026-06-27 → 2026-07-06):</b> neither state below is the live design —
+      <b>the pin itself moved</b>. OpenClaw <b>2026.6.10</b> (enabled by a vendored, fail-closed 1-line NemoClaw patch)
+      restored native in-gateway scheduled tool-calling, so the three loops run live as <b>OpenClaw cron jobs</b>:
+      conf-radar daily 09:00 SGT · topic-trends Sun 18:00 · weekly digest <b>Mon 10:00</b> (staggered off the 09:00
+      collision). One-event-per-run was <b>kept deliberately</b> for the 120B executor. Toggle <b>✅ Shipped</b> for
+      the live design; the two 2026-06-25 states are preserved as the diagnosis + proposal that led there.
+    </div>
+  </header>
+
+  <div class="toggle" role="tablist" aria-label="state">
+    <button class="cur"  aria-pressed="false" onclick="setState('current')"><span class="dot"></span>Diagnosed — blocked</button>
+    <button class="prop" aria-pressed="false" onclick="setState('proposed')"><span class="dot"></span>Proposed — host-scheduled</button>
+    <button class="ship" aria-pressed="true"  onclick="setState('shipped')"><span class="dot"></span>✅ Shipped — the pin moved</button>
+    <button class="playbtn" onclick="play()">▶ Play flow</button>
+  </div>
+
+  <div class="statebar" id="statebar"></div>
+  <div class="metrics" id="metrics"></div>
+  <div class="pipe" id="pipe"></div>
+
+  <div class="grid2">
+    <div class="detail" id="detail"></div>
+    <table class="cmp" id="cmp"></table>
+  </div>
+
+  <div class="notecard" id="siblings"></div>
+
+  <footer class="legend">
+    <span><i style="background:var(--green)"></i> works / tools fire</span>
+    <span><i style="background:var(--bad)"></i> break — flow stops here</span>
+    <span><i style="background:var(--warn)"></i> warning — model-capability limit</span>
+    <span style="margin-left:auto">finn · diagnosis 2026-06-25 (OpenClaw 2026.5.27, pinned) · shipped on OpenClaw 2026.6.10 · updated 2026-07-06</span>
+  </footer>
+</div>
+
+<script>
+const ARROW = dir => `<div class="conn ${dir}"><svg viewBox="0 0 30 22"><path d="M2 11 H24" stroke="currentColor" stroke-width="2" fill="none"/><path d="M20 5 L26 11 L20 17" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div>`;
+
+const EVENTS = [ // illustrative tiering of the 9 upcoming events (names live in Notion)
+  {t:'⭐⭐⭐',due:true},{t:'⭐⭐⭐',due:false},{t:'⭐⭐⭐',due:true},
+  {t:'⭐⭐',due:false},{t:'⭐⭐',due:true},{t:'⭐⭐',due:false},{t:'⭐⭐',due:false},
+  {t:'⭐',due:false},{t:'⭐',due:false}
+];
+
+const DATA = {
+  current:{
+    state:'OpenClaw gateway cron drives the agent turn directly — and it cannot call tools',
+    metrics:[
+      {k:'Scheduler',v:'Gateway cron',n:'inside gateway netns'},
+      {k:'Radar cron jobs',v:'1',n:'of 3 registered'},
+      {k:'Agent runs / day',v:'1',n:'one big turn'},
+      {k:'Events / run',v:'9',n:'single loop'},
+      {k:'Tools fire?',v:'No',n:'context stripped',bad:true},
+      {k:'Nemotron finishes?',v:'No',n:'loop too complex',bad:true},
+    ],
+    stages:[
+      {ico:'⏰',h:'OpenClaw gateway cron',sub:'3 jobs · runs in gateway netns',status:'ok',count:'3 jobs',
+       li:['finn-conf-radar — <code>0 9 * * *</code> SGT','finn-topic-trends — Sun 18:00','finn-weekly-digest — Mon 10:00'],
+       detail:'All scheduling lives <b>inside</b> the OpenClaw gateway. Three cron jobs were registered via <code>gw-cron.sh cron add</code> (nsenter into the gateway netns, operator.admin granted on-disk). The radar job is <code>finn-conf-radar</code>, daily 09:00 SGT.'},
+      {ico:'🗂',h:'1 scheduled job',sub:'finn-conf-radar (daily 09:00 SGT)',status:'ok',
+       li:['<code>--session-key agent:main:conf-radar</code>','<code>--message &lt;9-event prompt&gt;</code>','fires a scheduled <b>agentTurn</b>'],
+       detail:'The cron job carries the prompt as <code>--message</code> and fires a scheduled <b>agentTurn</b> on the main agent. This is where the platform wall is hit.'},
+      {ico:'🤖',h:'1 agent turn — loop ×9',sub:'Nemotron · main agent',status:'break',badge:'BREAK ① context stripped',
+       li:['must loop <b>all 9</b> upcoming events','per event: query→search→fetch→update','one turn does everything'],
+       detail:'<b>BREAK ①.</b> On OpenClaw 2026.5.27 a scheduled cron agentTurn runs <b>context-stripped</b> — no workspace bootstrap (<code>AGENTS.md</code> / <code>TOOLS.md</code>). Nemotron is never tool-primed, so it emits <b>zero tool calls</b> and just echoes the prompt template. The misleading <code>delivered:true</code> hides it — verified by checking real Notion writes (there were none).'},
+      {ico:'🛠',h:'Tools',sub:'never reached',status:'dead',badge:'BREAK ② loop too complex',
+       li:['<code>notion__query_database</code>','<code>notion__update_page</code>','<code>web_search</code> / <code>web_fetch</code>'],
+       detail:'<b>BREAK ②</b> (a second, independent wall). Even via the working agent path, a 9-event loop overwhelms the weak Nemotron executor: ~10 reads/searches but <b>0 <code>update_page</code></b>, garbled output. Two stacked failures masking each other.'},
+      {ico:'📤',h:'Outputs',sub:'nothing real',status:'dead',
+       li:['Notion writes: <b>0</b> ❌','Telegram: <code>delivered:true</code> but empty','→ jobs <b>removed</b> (Telegram spam)'],
+       detail:'Net: no Notion updates, no useful Telegram alert. The three gateway cron jobs were <b>removed</b> to stop them spamming Telegram with template echoes.'},
+    ],
+    conns:['ok','ok','bad','bad']
+  },
+  proposed:{
+    state:'The host schedules many small single-event agent runs — each one fully tool-primed',
+    metrics:[
+      {k:'Scheduler',v:'Host launchd',n:'macOS host cron'},
+      {k:'Dispatch timers',v:'1',n:'of 3 total'},
+      {k:'Agent runs / day',v:'0–9',n:'only due events'},
+      {k:'Events / run',v:'1',n:'rigid checklist'},
+      {k:'Tools fire?',v:'Yes',n:'full bootstrap',good:true},
+      {k:'Nemotron finishes?',v:'Yes',n:'single event',good:true},
+    ],
+    stages:[
+      {ico:'🖥',h:'Host launchd / cron',sub:'3 timers on the macOS host',status:'ok',count:'3 timers',
+       li:['radar-dispatch — daily 09:00 SGT','trends — Sun 18:00 SGT','digest — Mon 09:00 SGT'],
+       detail:'Scheduling moves <b>off</b> gateway cron onto the host (launchd, or plain cron). Each timer runs <code>gw-cron.sh</code>, which <code>nsenter</code>s the gateway netns and invokes the agent with the gateway token. The gateway-cron registration is retired.'},
+      {ico:'🔎',h:'Dispatcher — find due',sub:'one Notion query',status:'ok',
+       li:['<code>Status = Upcoming</code>','<code>AND Next check due ≤ today</code>','→ returns <b>0–9 due</b> events'],
+       detail:'The daily dispatch first asks Notion which events are actually <b>due</b> today (adaptive cadence keys off <code>Next check due</code>). Only those fire — typically a few of the 9, not all of them. This is plain host-side logic, not the weak model.'},
+      {ico:'🤖',h:'N agent runs — 1 event each',sub:'openclaw agent --agent main',status:'ok',fan:true,
+       li:['<b>full bootstrap</b> → tools primed','one fresh run per due event'],
+       detail:'For <b>each</b> due event the host fires a fresh <code>openclaw agent --agent main</code> (via <code>run-job.sh</code>). That path injects the full <code>AGENTS.md</code>/<code>TOOLS.md</code> priming, so Nemotron drives tools reliably — <b>proven</b>. Many small runs replace one impossible loop.'},
+      {ico:'🛠',h:'Rigid 1-event checklist',sub:'inside each run',status:'ok',count:'4 calls',
+       li:['1× <code>notion__query_database</code>','1× <code>web_search</code>','1× <code>web_fetch</code>','1× <code>notion__update_page</code>'],
+       detail:'Single-event scope = a checklist Nemotron can finish: pick the one due event → research it → write it back. <b>Proven working:</b> <i>AI for Education Conference 2026</i> → <code>Last checked = 2026-06-25</code>, <code>Next check due = 2026-07-09</code> (+14d).'},
+      {ico:'📤',h:'Outputs',sub:'per run',status:'ok',
+       li:['Notion: Last checked · Next due · Latest change','Telegram: <code>🟢</code> / <code>🔔</code> one-liner','re-schedules itself: +3 / +7 / +14 d'],
+       detail:'Each run updates its one event and (radar/digest) sends a one-line Telegram heartbeat. <code>Next check due</code> is set to today + 3/7/14 days by tier × proximity, so the event re-enters the due-set on its own cadence.'},
+    ],
+    conns:['ok','ok','ok','ok']
+  },
+  shipped:{
+    state:'OpenClaw 2026.6.10 (vendored 1-line NemoClaw patch) restored native scheduled tool-calling — three gateway cron jobs run the loops live',
+    metrics:[
+      {k:'Scheduler',v:'Gateway cron',n:'native on 2026.6.10',good:true},
+      {k:'Radar cron jobs',v:'3',n:'of 3 registered',good:true},
+      {k:'Events / run',v:'1',n:'kept from the proposal',good:true},
+      {k:'Tools fire?',v:'Yes',n:'cron is tool-primed',good:true},
+      {k:'Nemotron finishes?',v:'Yes',n:'single-event checklist',good:true},
+      {k:'Writes',v:'Cadence only',n:'ownership matrix',good:true},
+    ],
+    stages:[
+      {ico:'⏰',h:'OpenClaw gateway cron',sub:'3 jobs · native on 2026.6.10',status:'ok',count:'3 jobs',
+       li:['finn-conf-radar — daily 09:00 SGT','finn-topic-trends — Sun 18:00','finn-weekly-digest — <b>Mon 10:00</b> (staggered)'],
+       detail:'The fix that shipped was neither state on the left: <b>the pin itself moved</b>. NemoClaw was bumped to v0.0.68 and a vendored, fail-closed 1-line patch let the OpenClaw <b>2026.6.10</b> image build — on 2026.6.x scheduled cron runs are tool-primed natively, so gateway cron is back as the scheduler with no host timers. The digest was staggered to Mon 10:00 after colliding with the 09:00 radar run.'},
+      {ico:'🔎',h:'Due-selection in Notion',sub:'server-side date filter',status:'ok',fan:true,
+       li:['<code>Status = Upcoming</code>','<code>AND Next check due ≤ today</code>','tier × proximity sets the cadence'],
+       detail:'Kept from the proposal: Notion answers "what is due today" with a server-side filter on <code>Next check due</code>, so the weak model does minimal date math and only due events are touched.'},
+      {ico:'🤖',h:'1 agent run — 1 event',sub:'cron-fired · fully primed',status:'ok',
+       li:['full bootstrap → tools primed','one rigid checklist per run'],
+       detail:'One-event-per-run was <b>kept deliberately</b> — not because cron can\'t drive tools any more, but because the 120B executor reliably finishes a single rigid checklist. Erasing that scaffold is a <b>cost-per-completed-task</b> decision for a bigger model, not an architecture necessity.'},
+      {ico:'🛠',h:'Checklist + guardrails',sub:'4 calls · cadence writes only',status:'ok',count:'4 calls',
+       li:['query → search → fetch → update','writes ONLY <code>Last checked</code> · <code>Next check due</code> · <code>Latest change</code>','regional (non-SG) events → speakers/themes only'],
+       detail:'The prompts are frontier-authored for the weak executor (literal cadence table, exact property names) and carry the <b>ownership matrix</b>: finn\'s loops write facts + cadence; every decision column stays human. Scope is Singapore-first — regional events feed speaker rosters + theme trends, never travel actions.'},
+      {ico:'📤',h:'Outputs',sub:'live over Telegram',status:'ok',
+       li:['Notion cadence writes ✓','<code>🟢</code>/<code>🔔</code> heartbeats · Mon digest ✓','observed end-to-end 2026-06-29/30'],
+       detail:'Radar heartbeats and the Monday digest are confirmed over Telegram — the "delivered:true but nothing real" failure mode from the diagnosis is gone; verification is by real Notion writes and received messages, never the delivery flag.'},
+    ],
+    conns:['ok','ok','ok','ok']
+  }
+};
+
+let CURRENT='shipped';
+
+function metricsHTML(s){
+  return s.metrics.map(m=>`<div class="metric ${m.bad?'bad':''}${m.good?'good':''}">
+    <div class="k">${m.k}</div><div class="v">${m.v}</div><div class="n">${m.n}</div></div>`).join('');
+}
+function fanHTML(){
+  return `<div class="fan">`+EVENTS.map(e=>`<span class="chip ${e.due?'due':''}"><span class="t">${e.t}</span> ${e.due?'due':'—'}</span>`).join('')+`</div>`;
+}
+function stageHTML(st,i){
+  const cls=`stage ${st.status}`;
+  const badge=st.badge?`<span class="badge">${st.badge}</span>`:'';
+  const count=st.count?`<span class="count">${st.count}</span>`:'';
+  const fan=st.fan?fanHTML():'';
+  return `<div class="${cls}" data-i="${i}" onclick="pick(${i})">
+    ${badge}${count}
+    <div class="ico">${st.ico}</div>
+    <h3>${st.h}</h3><div class="ssub">${st.sub}</div>
+    <ul>${st.li.map(x=>`<li>${x}</li>`).join('')}</ul>${fan}</div>`;
+}
+function pipeHTML(s){
+  let out='';
+  s.stages.forEach((st,i)=>{ out+=stageHTML(st,i); if(i<s.stages.length-1) out+=ARROW(s.conns[i]); });
+  return out;
+}
+function pick(i){
+  const s=DATA[CURRENT], st=s.stages[i];
+  document.querySelectorAll('.stage').forEach(e=>e.classList.remove('lit'));
+  document.querySelector(`.stage[data-i="${i}"]`).classList.add('lit');
+  document.getElementById('detail').innerHTML=
+    `<div class="dh">${({current:'Diagnosed — blocked',proposed:'Proposed — host-scheduled',shipped:'Shipped — native cron'})[CURRENT]} · step ${i+1}</div>
+     <h4>${st.ico} ${st.h}</h4><p>${st.detail}</p>`;
+}
+const CMP=[
+  ['Scheduler','OpenClaw gateway cron (in-netns)','Host launchd / cron → gw-cron.sh','Gateway cron — native on 2026.6.10'],
+  ['Radar entries','1 cron job','1 dispatch timer (+ trends, digest)','3 cron jobs (radar · trends · digest)'],
+  ['Invocation','scheduled agentTurn (--message)','openclaw agent --agent main (per event)','scheduled run — tool-primed natively'],
+  ['Bootstrap / TOOLS.md','stripped → no priming','full → tools primed','full — native on 2026.6.x'],
+  ['Events per run','9 (one loop)','1 (single-event checklist)','1 — kept deliberately'],
+  ['Runs per day','1','0–9 (only due events)','1 daily + 2 weekly'],
+  ['Tools actually fire','No','Yes','Yes'],
+  ['Nemotron completes','No','Yes (proven)','Yes (live: heartbeats + digest)'],
+];
+function render(){
+  const s=DATA[CURRENT];
+  document.body.dataset.state=CURRENT;
+  document.querySelector('.toggle .cur').setAttribute('aria-pressed',CURRENT==='current');
+  document.querySelector('.toggle .prop').setAttribute('aria-pressed',CURRENT==='proposed');
+  document.querySelector('.toggle .ship').setAttribute('aria-pressed',CURRENT==='shipped');
+  document.getElementById('statebar').innerHTML=
+    `<span class="tag">${({current:'as attempted',proposed:'as designed',shipped:'live'})[CURRENT]}</span> ${s.state}`;
+  document.getElementById('metrics').innerHTML=metricsHTML(s);
+  document.getElementById('pipe').innerHTML=pipeHTML(s);
+  document.getElementById('cmp').innerHTML=
+    `<tr><th>Dimension</th><th>Diagnosed</th><th>Proposed</th><th>Shipped</th></tr>`+
+    CMP.map(r=>`<tr><td class="lab">${r[0]}</td><td class="cur">${r[1]}</td><td class="prop">${r[2]}</td><td class="ship">${r[3]}</td></tr>`).join('');
+  pick(0);
+}
+function setState(x){ CURRENT=x; render(); }
+
+function play(){
+  const stages=[...document.querySelectorAll('.stage')];
+  stages.forEach(e=>e.classList.remove('lit','shake'));
+  let i=0;
+  (function step(){
+    if(i>=stages.length) return;
+    const el=stages[i];
+    stages.forEach(e=>e.classList.remove('lit'));
+    el.classList.add('lit');
+    pick(i);
+    const dead=el.classList.contains('break')||el.classList.contains('dead');
+    if(dead && CURRENT==='current'){ el.classList.add('shake'); return; } // stop at the break
+    i++; setTimeout(step,820);
+  })();
+}
+
+document.getElementById('siblings').innerHTML=
+  `<b>The other two loops (same walls, same fixes):</b> &nbsp;• <b>topic-trends</b> (Sun 18:00, silent) got the same <b>one-batch-per-run</b> treatment and runs live. &nbsp;• <b>weekly-digest</b> (<b>Mon 10:00</b> — staggered off the 09:00 radar collision) is a simple read-and-compose single run. &nbsp;<b>Root cause was two independent walls:</b> the <b>2026.6.10 upgrade</b> fixed the <i>plumbing</i> (scheduled runs are tool-primed) — exactly the "newer OpenClaw" path; the <b>1-event decomposition</b> fixed the <i>weak executor</i> (Nemotron finishes) and was <b>kept even after the upgrade</b>.`;
+
+render();
+</script>
+</body>
+</html>

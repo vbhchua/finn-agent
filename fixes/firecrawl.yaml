@@ -1,0 +1,52 @@
+# firecrawl.yaml
+#
+# Custom NemoClaw network-policy preset: allows egress to the Firecrawl hosted
+# scrape API so OpenClaw can use Firecrawl as its web_fetch provider.
+#
+# v0.0.67: Firecrawl is now a BUNDLED stock extension (no plugin install, no
+# custom image). setup-finn.sh ENABLES it at runtime and points web_fetch at it
+# (plugins.entries.firecrawl.enabled=true + tools.web.fetch.provider=firecrawl);
+# web SEARCH stays on the built-in brave provider. With this policy allowed,
+# web_fetch reads arbitrary pages THROUGH Firecrawl's single endpoint, so you
+# don't have to allow-list every site the agent wants to read.
+#
+# Endpoint: api.firecrawl.dev only (the hosted service). If you self-host
+# Firecrawl on a private/internal address, add that host here instead and set
+# the matching baseUrl in the Firecrawl config.
+#
+# Methods: Firecrawl's search/scrape calls are POST; GET is allowed too for any
+# status/health paths. Binaries: the requests originate from the OpenClaw agent
+# (and its node runtime), matching how web_search/web_fetch are dispatched.
+#
+# Same shape as a built-in preset: a top-level `preset:` block + a
+# `network_policies:` block. (If your installed NemoClaw's preset header uses
+# different field names, copy the exact shape from
+# nemoclaw-blueprint/policies/presets/telegram.yaml.)
+
+preset:
+  name: firecrawl
+  description: Firecrawl hosted search + scrape API egress
+
+network_policies:
+  firecrawl:
+    name: firecrawl
+    endpoints:
+      - host: api.firecrawl.dev
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        rules:
+          - allow:
+              method: POST
+              path: /**
+          - allow:
+              method: GET
+              path: /**
+    binaries:
+      # Paths on the FULL production image (finn-base:local): npm prefix is
+      # /usr/local, so openclaw is /usr/local/bin/openclaw and node is
+      # /usr/local/bin/node. (On the community base these were /usr/bin/* — if
+      # you ever switch base, re-verify with `command -v openclaw node`.) The
+      # outbound HTTPS to api.firecrawl.dev is issued by the node runtime.
+      - path: /usr/local/bin/openclaw
+      - path: /usr/local/bin/node

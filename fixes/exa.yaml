@@ -1,0 +1,48 @@
+# exa.yaml
+#
+# Custom NemoClaw network-policy preset: allows egress to the Exa.ai hosted
+# search API so OpenClaw can use Exa as its web_search provider.
+#
+# Pairs with the Exa config baked into Dockerfile-exa
+# (plugins.entries.exa + tools.web.search.provider = exa). This preset covers the
+# SEARCH path only (api.exa.ai). In the hybrid setup, web_FETCH is
+# handled separately by Firecrawl — see fixes/firecrawl.yaml (api.firecrawl.dev),
+# applied alongside this one (see the Exa variant in SETUP.md). Exa search returns page
+# snippets inline with each hit (its default { highlights: true }) for quick
+# context; full-page reads go through Firecrawl web_fetch.
+#
+# Endpoint: api.exa.ai only (the hosted service; OpenClaw appends /search).
+#
+# Methods: Exa's /search call is POST; GET is allowed too for any status/health
+# paths. Binaries: the requests originate from the OpenClaw agent (and its node
+# runtime), matching how web_search is dispatched.
+#
+# Same shape as the firecrawl preset (fixes/firecrawl.yaml): a top-level
+# `preset:` block + a `network_policies:` block.
+
+preset:
+  name: exa
+  description: Exa.ai hosted search API egress (search-with-contents)
+
+network_policies:
+  exa:
+    name: exa
+    endpoints:
+      - host: api.exa.ai
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        rules:
+          - allow:
+              method: POST
+              path: /**
+          - allow:
+              method: GET
+              path: /**
+    binaries:
+      # Paths on the FULL production image (finn-base:local): npm prefix is
+      # /usr/local, so openclaw is /usr/local/bin/openclaw and node is
+      # /usr/local/bin/node. The outbound HTTPS to api.exa.ai is issued by the
+      # node runtime. (If you switch base, re-verify with `command -v openclaw node`.)
+      - path: /usr/local/bin/openclaw
+      - path: /usr/local/bin/node

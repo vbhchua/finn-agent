@@ -1,0 +1,112 @@
+# syntax=docker/dockerfile:1
+#
+# finn onboard image for OpenClaw 2026.6.10  (use with: nemoclaw onboard --from)
+#
+# = the full NemoClaw production image built with OPENCLAW_VERSION=2026.6.10
+#   (which carries NemoClaw's chat-send / tool-catalog / inline patches + the
+#   baked brave web-search plugin) + a baked Firecrawl FETCH layer.
+#
+# ---------------------------------------------------------------------------
+# WHY a baked firecrawl layer on 2026.6.x (it was just-enable on <= 2026.5.x)
+# ---------------------------------------------------------------------------
+# OpenClaw 2026.6.x UN-BUNDLED firecrawl/exa — they are no longer stock
+# extensions you flip on with `config set …enabled true`; they are install-from-
+# catalog plugins (like brave). A *runtime* `openclaw plugins install` needs
+# npm-registry egress, which finn's deny-by-default sandbox blocks. So we bake the
+# plugin at BUILD time (direct egress during `docker build`); the agent's RUNTIME
+# egress then stays locked to api.firecrawl.dev — the same model as the baked
+# brave plugin. This is the OpenClaw-2026.6.x analog of deprecated/Dockerfile.
+#
+# A working gateway needs `nemoclaw-start` as its entrypoint (it mints
+# OPENCLAW_GATEWAY_TOKEN, writes the proxy-env preloads, and supervises the
+# gateway). We INHERIT it from BASE_IMAGE — never override the ENTRYPOINT.
+#
+# ---------------------------------------------------------------------------
+# PREREQ: build the 2026.6.10 production image once and tag it (BASE_IMAGE).
+# NemoClaw pins OpenClaw and its bundled patches only cover OpenClaw <=2026.6.8;
+# 2026.6.9 changed the chat-send run-id callsite, so a stock NemoClaw v0.0.68
+# build fails ("followup runner run-id shape not recognized"). Apply the vendored
+# 1-line tolerance to a NemoClaw v0.0.68 checkout (PIN THE TAG — verified against
+# v0.0.68 exactly; see github.com/NVIDIA/NemoClaw/tags), then build:
+#   git clone --branch v0.0.68 --depth 1 https://github.com/NVIDIA/NemoClaw.git && cd NemoClaw
+#   git apply <this-repo>/patches/nemoclaw-2026.6.x-chat-send-runid.patch
+#   docker build -t nemoclaw-finn-base:2026.6.10 \
+#     --build-arg OPENCLAW_VERSION=2026.6.10 \
+#     --build-arg NEMOCLAW_WEB_SEARCH_ENABLED=1 \
+#     -f Dockerfile .
+# (Already built + tagged in this session; the patch is preserved at
+#  patches/nemoclaw-2026.6.x-chat-send-runid.patch so the base stays reproducible.
+#  Upstream had not fixed 2026.6.9+ as of NemoClaw v0.0.68 — drop the patch once it does.)
+#
+# Then onboard from THIS file:
+#   nemoclaw onboard --from ./Dockerfile.finn-2026.6.10 --name finn
+# After onboard, run ./setup-finn.sh to inject the FIRECRAWL_API_KEY + egress
+# policy + /etc/hosts (the key is deliberately NOT baked into the image).
+#
+# Config durability: finn runs shields-down, so nemoclaw-start RECOMPUTES
+# .config-hash from the current openclaw.json at startup — baked edits survive,
+# provided .openclaw stays sandbox-owned (which is why the steps run as sandbox).
+
+ARG BASE_IMAGE=nemoclaw-finn-base:2026.6.10
+FROM ${BASE_IMAGE}
+
+# `nemoclaw onboard --from` / `channels add` patch this staged Dockerfile and
+# inject the base64 messaging plan into this ARG (dockerfile-patch.js). Without it
+# both fail with "Dockerfile is missing ARG NEMOCLAW_MESSAGING_PLAN_B64" — the
+# NemoClaw #5729 class of bug (a custom/thin Dockerfile that omits the ARG). The
+# default is EMPTY, so the committed file carries no token; the plan (incl. the
+# Telegram bot token) is supplied at onboard time and consumed by the applier RUN
+# below. Keeping it empty here also means no secret lands in this repo.
+ARG NEMOCLAW_MESSAGING_PLAN_B64=
+
+# Run as the RUNTIME user (sandbox, uid 998, HOME=/sandbox) so everything under
+# ~/.openclaw stays sandbox-owned (mutable-mode hash refresh keeps our edits) and
+# /tmp keeps 1777. No `USER root` openclaw upgrade is needed — the base already
+# ships openclaw 2026.6.10. The firecrawl API key is NOT baked (setup-finn.sh injects it).
+USER sandbox
+ENV HOME=/sandbox \
+    NEMOCLAW_MESSAGING_PLAN_B64=${NEMOCLAW_MESSAGING_PLAN_B64}
+
+# 1) The production image routes egress through the runtime-only proxy
+#    (proxy.proxyUrl=http://10.200.0.1:3128). That proxy is unreachable during
+#    `docker build`, so an npm fetch through it dies with UND_ERR_CONNECT_TIMEOUT.
+#    Disable the proxy just long enough to fetch the plugin; step 3 restores it.
+RUN python3 -c "import json, os; \
+p=os.path.expanduser('~/.openclaw/openclaw.json'); d=json.load(open(p)); \
+d.setdefault('proxy', {})['enabled']=False; json.dump(d, open(p,'w'), indent=2)"
+
+# 2) Install + enable the VERSION-MATCHED Firecrawl plugin and point web_FETCH at
+#    it. web_SEARCH stays on brave (baked via NEMOCLAW_WEB_SEARCH_ENABLED=1).
+#    - `npm:` spec works on 2026.6.x (verified); `clawhub:` was an old-OpenClaw
+#      requirement. `--pin` locks the plugin to the openclaw runtime version.
+#    - codeMode is off and toolSearch is disabled-for-Nemotron by default on this
+#      build, so we don't re-bake them (cf. deprecated/Dockerfile, which had to).
+#    - NPM_CONFIG_OFFLINE is reset to false on this RUN so the registry is reachable.
+RUN NPM_CONFIG_OFFLINE=false openclaw plugins install "npm:@openclaw/firecrawl-plugin@2026.6.10" --pin \
+ && openclaw config set plugins.entries.firecrawl.enabled true \
+ && openclaw config set tools.web.fetch.provider firecrawl \
+ && openclaw config set plugins.entries.firecrawl.config.webFetch.baseUrl https://api.firecrawl.dev
+
+# 2b) Apply the messaging plan (Telegram etc.) the SAME way the production openclaw
+#     image does — render channel config + the runtime metadata artifact from
+#     NEMOCLAW_MESSAGING_PLAN_B64. The base already ships /src/lib/messaging, so no
+#     COPY is needed. No-op when the plan is empty (e.g. this verification build),
+#     which is why the build still succeeds with no channel configured. Runs while
+#     the proxy is still disabled so any channel package-install can reach npm.
+RUN node --experimental-strip-types /src/lib/messaging/applier/build/messaging-build-applier.mts --agent openclaw --phase runtime-setup \
+ && node --experimental-strip-types /src/lib/messaging/applier/build/messaging-build-applier.mts --agent openclaw --phase agent-install \
+ && node --experimental-strip-types /src/lib/messaging/applier/build/messaging-build-applier.mts --agent openclaw --phase post-agent-install
+
+# 3) Restore the runtime proxy (proxyUrl left as the baked value so external egress
+#    is still proxied + policy-governed) and keep loopbackMode=gateway-only (the
+#    required fix on this macOS host-process topology; it does NOT affect external
+#    egress). Last write to openclaw.json; runs as sandbox so the file stays
+#    sandbox-owned. If the gateway misbehaves, set loopbackMode back to "proxy".
+RUN python3 -c "import json, os; \
+p=os.path.expanduser('~/.openclaw/openclaw.json'); d=json.load(open(p)); \
+pr=d.setdefault('proxy', {}); pr['enabled']=True; pr['loopbackMode']='gateway-only'; \
+json.dump(d, open(p,'w'), indent=2)"
+
+# DO NOT set ENTRYPOINT — inherit /usr/local/bin/nemoclaw-start from the base.
+# That is what provisions the gateway auth token + proxy-env and launches the
+# gateway. Overriding it is exactly what broke the old community-base attempt.

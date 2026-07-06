@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>finn — sandboxed research agent on NemoClaw / OpenShell</title>
+<style>
+  :root{
+    --green:#76b900; --green-d:#5a8f00; --green-soft:#eaf4d8;
+    --ink:#10160f; --ink2:#394434; --muted:#74807a;
+    --line:#e0e6df; --bg:#ffffff; --panel:#f5f8f3; --stage:#e8ebe7;
+    --ok:#2f9e44; --warn:#c98a00; --warnbg:#fff6e0;
+    --shadow:0 18px 50px rgba(20,40,15,.18);
+    --font:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text","Helvetica Neue",Arial,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{font-family:var(--font);background:var(--stage);color:var(--ink);
+    -webkit-font-smoothing:antialiased;overflow:hidden}
+
+  /* progress bar */
+  #bar{position:fixed;top:0;left:0;height:3px;background:var(--green);width:0;z-index:50;
+    transition:width .45s cubic-bezier(.4,0,.2,1)}
+
+  /* stage + 16:9 deck */
+  #stage{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
+  #deck{width:1280px;height:720px;background:var(--bg);border-radius:10px;
+    box-shadow:var(--shadow);overflow:hidden;transform-origin:center center;position:relative}
+  #track{display:flex;height:100%;width:100%;transition:transform .55s cubic-bezier(.45,.05,.2,1)}
+  .slide{min-width:100%;height:100%;padding:62px 76px;display:flex;flex-direction:column;
+    position:relative;background:var(--bg)}
+
+  /* typography */
+  h1{font-size:104px;font-weight:800;letter-spacing:-3px;line-height:.92}
+  h2{font-size:42px;font-weight:800;letter-spacing:-1px;line-height:1.04}
+  .eyebrow{font-size:15px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;
+    color:var(--green-d);margin-bottom:14px}
+  .lead{font-size:21px;line-height:1.5;color:var(--ink2);font-weight:400}
+  .slide p{font-size:18px;line-height:1.55;color:var(--ink2)}
+  .accent{color:var(--green-d);font-weight:700}
+  b,strong{color:var(--ink);font-weight:700}
+  .head{margin-bottom:30px}
+  .head .rule{width:54px;height:5px;background:var(--green);border-radius:3px;margin-top:18px}
+
+  /* reveal animation */
+  .r{opacity:0;transform:translateY(16px)}
+  .slide.active .r{opacity:1;transform:none;transition:opacity .5s ease, transform .5s ease}
+  .slide.active .r:nth-child(1){transition-delay:.05s}
+  .slide.active .r:nth-child(2){transition-delay:.12s}
+  .slide.active .r:nth-child(3){transition-delay:.19s}
+  .slide.active .r:nth-child(4){transition-delay:.26s}
+  .slide.active .r:nth-child(5){transition-delay:.33s}
+  .slide.active .r:nth-child(6){transition-delay:.40s}
+
+  /* ---- slide 1: exec summary / hero ---- */
+  .hero{display:grid;grid-template-columns:1.05fr 1fr;gap:54px;flex:1;align-items:center}
+  .hero .tag{display:inline-block;font-size:13px;font-weight:700;letter-spacing:1.5px;
+    text-transform:uppercase;color:var(--green-d);background:var(--green-soft);
+    padding:7px 14px;border-radius:999px;margin-bottom:26px}
+  .hero h1 .dot{color:var(--green)}
+  .hero .sub{font-size:25px;line-height:1.4;color:var(--ink2);margin-top:24px;font-weight:500}
+  .hero .meta{margin-top:30px;font-size:15px;color:var(--muted);letter-spacing:.3px}
+  .glance{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .stat{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px 22px}
+  .stat .n{font-size:40px;font-weight:800;color:var(--green-d);letter-spacing:-1px;line-height:1}
+  .stat .l{font-size:14.5px;color:var(--ink2);margin-top:9px;line-height:1.35}
+  .summary-line{margin-top:18px;font-size:15px;color:var(--muted);grid-column:1/-1;
+    display:flex;align-items:center;gap:9px}
+
+  /* ---- feature grid ---- */
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;flex:1;align-content:center}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:24px 24px;
+    display:flex;flex-direction:column;gap:9px;position:relative}
+  .card .ic{font-size:26px;line-height:1}
+  .card h3{font-size:19px;font-weight:700;letter-spacing:-.3px}
+  .card p{font-size:14.5px;line-height:1.45;color:var(--ink2)}
+  .pill{position:absolute;top:18px;right:18px;font-size:11px;font-weight:700;letter-spacing:.5px;
+    padding:4px 9px;border-radius:999px}
+  .pill.ok{background:var(--green-soft);color:var(--green-d)}
+  .pill.wip{background:var(--warnbg);color:var(--warn)}
+
+  /* ---- architecture diagram ---- */
+  .arch{display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px;flex:1;align-items:stretch;margin-top:6px}
+  .col{display:flex;flex-direction:column}
+  .col .ctitle{font-size:13px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;
+    color:var(--muted);margin-bottom:12px;text-align:center}
+  .stackbox{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;
+    flex:1;display:flex;flex-direction:column;gap:10px;justify-content:center}
+  .node{background:#fff;border:1px solid var(--line);border-radius:10px;padding:11px 14px;
+    font-size:14.5px;font-weight:600;color:var(--ink)}
+  .node small{display:block;font-weight:400;color:var(--muted);font-size:12.5px;margin-top:2px}
+  .node.green{border-color:var(--green);background:#f7fcec}
+  .gate{background:var(--ink);color:#fff;border:none;text-align:center}
+  .gate b{color:#fff}
+  .gate small{color:#c7d2c1}
+  .arrowcol{display:flex;align-items:center;justify-content:center;color:var(--green);font-size:30px;font-weight:800}
+  .archnote{margin-top:16px;font-size:14.5px;color:var(--muted);text-align:center}
+
+  /* ---- security ---- */
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:26px;flex:1;align-content:center}
+  .panelbox{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:26px 28px}
+  .panelbox.delta{background:#f7fcec;border-color:var(--green)}
+  .panelbox h3{font-size:18px;font-weight:800;margin-bottom:16px;letter-spacing:-.3px}
+  .chklist{list-style:none;display:flex;flex-direction:column;gap:12px}
+  .chklist li{font-size:15.5px;line-height:1.4;color:var(--ink2);padding-left:28px;position:relative}
+  .chklist li::before{content:"✓";position:absolute;left:0;top:0;color:var(--green-d);font-weight:800}
+  .chklist.dot li::before{content:"●";font-size:11px;top:3px}
+
+  /* ---- flow ---- */
+  .flowwrap{flex:1;display:flex;flex-direction:column;justify-content:center;gap:24px}
+  .flow{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;align-items:stretch}
+  .step{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 14px;
+    display:flex;flex-direction:column;gap:8px;transition:all .35s ease;position:relative;opacity:.55}
+  .step .si{width:26px;height:26px;border-radius:999px;background:#fff;border:1.5px solid var(--line);
+    display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:var(--muted)}
+  .step h4{font-size:15px;font-weight:700;letter-spacing:-.2px}
+  .step p{font-size:12.5px;line-height:1.35;color:var(--ink2)}
+  .step .via{font-size:10.5px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--green-d)}
+  .step.lit{opacity:1;border-color:var(--green);background:#f7fcec;box-shadow:0 8px 22px rgba(118,185,0,.18);transform:translateY(-3px)}
+  .step.lit .si{background:var(--green);border-color:var(--green);color:#fff}
+  .step.done{opacity:.9;border-color:#cfe3a8;background:#fbfdf6}
+  .step.done .si{background:#cfe3a8;border-color:#cfe3a8;color:var(--green-d)}
+  .flowctl{display:flex;align-items:center;gap:16px}
+  .transport{display:flex;align-items:center;gap:8px}
+  .tbtn{width:42px;height:42px;border-radius:999px;border:1.5px solid var(--line);background:#fff;
+    color:var(--ink);font-size:15px;cursor:pointer;font-family:var(--font);
+    display:flex;align-items:center;justify-content:center;
+    transition:transform .12s ease,background .2s,border-color .2s,opacity .2s}
+  .tbtn:hover:not(:disabled){background:var(--green-soft);border-color:var(--green);transform:translateY(-1px)}
+  .tbtn:disabled{opacity:.3;cursor:default}
+  .tbtn.play{background:var(--green);border-color:var(--green);color:#fff;
+    box-shadow:0 6px 16px rgba(118,185,0,.30)}
+  .tbtn.play:hover:not(:disabled){background:var(--green-d);border-color:var(--green-d)}
+  #fstep{font-size:13px;font-weight:700;color:var(--muted);letter-spacing:.5px;margin-left:6px;min-width:44px;text-align:center}
+  .flowcap{font-size:15px;color:var(--ink2);min-height:22px}
+  .flowcap b{color:var(--green-d)}
+
+  /* ---- proactive ---- */
+  .pchain{display:flex;align-items:stretch;gap:8px;margin-top:4px}
+  .pnode{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:15px 13px;
+    display:flex;flex-direction:column;gap:6px}
+  .pnode .pk{font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--muted)}
+  .pnode h4{font-size:15px;font-weight:700}
+  .pnode p{font-size:12.5px;line-height:1.35;color:var(--ink2)}
+  .pnode.src{background:#f7fcec;border-color:var(--green)}
+  .parrow{display:flex;align-items:center;color:var(--green);font-size:22px;font-weight:800}
+  .blocks{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:22px}
+  .block{border:1px solid var(--line);border-radius:13px;padding:16px 18px;background:#fff}
+  .block .bt{font-size:13px;font-weight:800;color:var(--warn);letter-spacing:.3px;margin-bottom:6px}
+  .block p{font-size:14px;line-height:1.4;color:var(--ink2)}
+  .statusbanner{display:inline-flex;align-items:center;gap:8px;background:var(--green-soft);color:var(--green-d);
+    font-size:13.5px;font-weight:700;padding:7px 14px;border-radius:999px;margin-left:14px;vertical-align:middle}
+
+  /* ---- depth / next ---- */
+  .chips{display:grid;grid-template-columns:1fr 1fr;gap:16px;flex:1;align-content:center}
+  .chip{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px 22px}
+  .chip h3{font-size:17px;font-weight:700;margin-bottom:7px;letter-spacing:-.2px;display:flex;gap:9px;align-items:center}
+  .chip h3 .k{color:var(--green-d)}
+  .chip p{font-size:14px;line-height:1.45;color:var(--ink2)}
+  .steps-list{display:flex;flex-direction:column;gap:14px;flex:1;justify-content:center}
+  .nstep{display:flex;gap:18px;align-items:flex-start;background:var(--panel);border:1px solid var(--line);
+    border-radius:13px;padding:17px 20px}
+  .nstep .num{flex:none;width:34px;height:34px;border-radius:999px;background:var(--green);color:#fff;
+    display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px}
+  .nstep .nt{font-size:16.5px;font-weight:700;color:var(--ink)}
+  .nstep .nd{font-size:14px;color:var(--ink2);margin-top:3px;line-height:1.4}
+  .nstep.opt .num{background:var(--muted)}
+
+  .footnote{position:absolute;bottom:30px;left:76px;font-size:12.5px;color:var(--muted)}
+
+  /* floating nav */
+  #nav{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);z-index:60;
+    display:flex;align-items:center;gap:14px;background:rgba(255,255,255,.82);
+    backdrop-filter:blur(14px) saturate(1.4);-webkit-backdrop-filter:blur(14px) saturate(1.4);
+    border:1px solid rgba(0,0,0,.08);border-radius:999px;padding:8px 12px;
+    box-shadow:0 10px 34px rgba(20,40,15,.20)}
+  #nav button{border:none;background:transparent;cursor:pointer;font-family:var(--font);
+    color:var(--ink);width:34px;height:34px;border-radius:999px;font-size:18px;
+    display:flex;align-items:center;justify-content:center;transition:background .15s}
+  #nav button:hover{background:var(--green-soft)}
+  #nav button:disabled{opacity:.28;cursor:default}
+  #dots{display:flex;gap:8px;align-items:center;padding:0 4px}
+  #dots span{width:8px;height:8px;border-radius:999px;background:#c8d2c4;cursor:pointer;transition:all .2s}
+  #dots span.on{background:var(--green);transform:scale(1.35)}
+  #counter{font-size:13px;font-weight:700;color:var(--ink2);min-width:54px;text-align:center;letter-spacing:.5px}
+  .hint{position:fixed;bottom:26px;right:26px;font-size:12px;color:var(--muted);z-index:55;opacity:.8}
+
+  /* print → 16:9 PDF */
+  @media print{
+    @page{size:1280px 720px;margin:0}
+    body{background:#fff;overflow:visible}
+    #bar,#nav,.hint{display:none!important}
+    #stage{position:static}
+    #deck{transform:none!important;width:1280px;height:720px;box-shadow:none;border-radius:0}
+    #track{display:block;width:auto;transform:none!important}
+    .slide{page-break-after:always;height:720px;width:1280px}
+    .r{opacity:1!important;transform:none!important}
+    .step{opacity:1}
+  }
+</style>
+</head>
+<body>
+<div id="bar"></div>
+
+<div id="stage">
+  <div id="deck">
+    <div id="track">
+
+      <!-- 1 · EXECUTIVE SUMMARY -->
+      <section class="slide">
+        <div class="hero">
+          <div>
+            <span class="tag r">NVIDIA NemoClaw · OpenShell · NIM</span>
+            <h1 class="r">finn<span class="dot">.</span></h1>
+            <div class="sub r">A <b>sandboxed research agent</b> on NVIDIA's
+              <span class="accent">NemoClaw / OpenShell</span> stack — reached over Telegram,
+              powered by NVIDIA NIM.</div>
+            <div class="meta r"><code>nemoclaw onboard --from</code> the 2026.6.10 image · nemoclaw v0.0.68 ·
+              OpenClaw 2026.6.10 · Nemotron-3-Super-120B · 2026-06-26 · rev 2026-07-06</div>
+          </div>
+          <div class="glance r">
+            <div class="stat"><div class="n">0</div><div class="l">secrets in the image — <b>all keys injected at runtime</b></div></div>
+            <div class="stat"><div class="n">1</div><div class="l">egress authority — a <b>deny-by-default</b> L7 proxy</div></div>
+            <div class="stat"><div class="n">2</div><div class="l">MCP add-ons — <b>calendar</b> + <b>Notion</b>, read-only by default</div></div>
+            <div class="stat"><div class="n">3</div><div class="l">proactive loops — radar · trends · digest <span style="color:var(--green-d,#5a8f00)">(live)</span></div></div>
+            <div class="summary-line">✅ Search, fetch, calendar, Notion &amp; the radar loops confirmed end-to-end over Telegram.</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2 · KEY FEATURES -->
+      <section class="slide">
+        <div class="head r">
+          <div class="eyebrow">What finn does</div>
+          <h2>Key features</h2>
+          <div class="rule"></div>
+        </div>
+        <div class="grid3">
+          <div class="card r"><span class="pill ok">LIVE</span><div class="ic">🔎</div>
+            <h3>Web research</h3>
+            <p><b>brave</b> search out-of-the-box + bundled <b>Firecrawl</b> fetch → reads <b>any public URL</b> server-side, no per-site allowlist.</p></div>
+          <div class="card r"><span class="pill ok">LIVE</span><div class="ic">💬</div>
+            <h3>Telegram-native</h3>
+            <p>DM the bot to drive it. Inbound is <b>pairing-gated</b> (<code>dmPolicy=pairing</code>) — the only way in.</p></div>
+          <div class="card r"><span class="pill ok">LIVE</span><div class="ic">📅</div>
+            <h3>Calendar add-on</h3>
+            <p>Outlook / live.com via a zero-dep <b>MCP server</b>. Read by default; create/update/delete behind an opt-in.</p></div>
+          <div class="card r"><span class="pill ok">LIVE</span><div class="ic">🗂️</div>
+            <h3>Notion connector</h3>
+            <p>Search + read pages/DBs via MCP; write opt-in. Sees <b>only pages shared</b> with the integration.</p></div>
+          <div class="card r"><span class="pill wip">IN PROGRESS</span><div class="ic">📡</div>
+            <h3>Event intelligence</h3>
+            <p>Proactive <b>conference radar</b> + <b>topic trends</b> + a <b>weekly digest</b> over a Notion knowledge base.</p></div>
+          <div class="card r"><span class="pill ok">LIVE</span><div class="ic">🧩</div>
+            <h3>Zero-dep MCP tools</h3>
+            <p>Our own auditable servers (raw stdio + <code>fetch</code>) — runtime add-ons, <b>not</b> baked into the image.</p></div>
+        </div>
+      </section>
+
+      <!-- 3 · ARCHITECTURE -->
+      <section class="slide">
+        <div class="head r">
+          <div class="eyebrow">How it's built</div>
+          <h2>Architecture — one thin image, one egress authority</h2>
+          <div class="rule"></div>
+        </div>
+        <div class="arch">
+          <div class="col r">
+            <div class="ctitle">Host (macOS)</div>
+            <div class="stackbox">
+              <div class="node">openshell-gateway <small>host process</small></div>
+              <div class="node">nemoclaw CLI <small>manage / onboard</small></div>
+              <div class="node green">Secrets injected <small>at runtime — never in the image</small></div>
+            </div>
+          </div>
+          <div class="col r">
+            <div class="ctitle">Sandbox · uid 998 (non-root)</div>
+            <div class="stackbox">
+              <div class="node">nemoclaw-start <small>gateway auth token</small></div>
+              <div class="node green">openclaw gateway :18789 <small>embedded agent · Nemotron (NIM)</small></div>
+              <div class="node">brave · Firecrawl <small>search · fetch</small></div>
+              <div class="node">MCP: calendar · Notion <small>+ telegram bridge</small></div>
+            </div>
+          </div>
+          <div class="col r">
+            <div class="ctitle">Egress &amp; backends</div>
+            <div class="stackbox">
+              <div class="node gate"><b>L7 proxy</b><small>deny-by-default · single authority</small></div>
+              <div class="node">inference.local <small>→ NVIDIA NIM</small></div>
+              <div class="node">brave · firecrawl · notion · graph</div>
+              <div class="node">api.telegram.org</div>
+            </div>
+          </div>
+        </div>
+        <div class="archnote r">Every outbound request is routed through the proxy — allowed only if a network policy names the host. <b>Non-root</b>, <b>gateway-auth</b>, and <b>runtime secrets</b> are all inherited from stock NemoClaw. Since 2026-06-27 the sandbox onboards from a <b>thin 2026.6.10 image</b> — the production base + one baked plugin (Firecrawl), enabled by a vendored, fail-closed 1-line NemoClaw patch; posture otherwise unchanged.</div>
+      </section>
+
+      <!-- 4 · SECURITY POSTURE -->
+      <section class="slide">
+        <div class="head r">
+          <div class="eyebrow">Trust model</div>
+          <h2>Secure by inheritance — posture ≈ stock NemoClaw</h2>
+          <div class="rule"></div>
+        </div>
+        <div class="two">
+          <div class="panelbox r">
+            <h3>Preserved controls</h3>
+            <ul class="chklist">
+              <li><b>Non-root</b> execution as uid 998</li>
+              <li><b>Gateway auth</b> via <code>nemoclaw-start</code></li>
+              <li><b>Deny-by-default</b> L7 egress proxy — the single authority</li>
+              <li><b>Runtime-injected secrets</b> — no keys in image layers</li>
+              <li><b>Telegram pairing</b> — inbound needs manual approval</li>
+            </ul>
+          </div>
+          <div class="panelbox delta r">
+            <h3>The one deliberate delta</h3>
+            <ul class="chklist dot">
+              <li><b>Firecrawl <code>web_fetch</code></b>: the sandbox still talks to <b>one allowlisted host</b> (<code>api.firecrawl.dev</code>) — Firecrawl's cloud fetches the page on finn's behalf. Net effect: the agent reads <b>any public URL</b> without widening the firewall — the whole point for a research agent.</li>
+              <li>Add-ons are <b>read-only by default</b>; writes (calendar, Notion) are an explicit opt-in.</li>
+              <li>Bounded by: cloud fetcher can't reach the sandbox's internal network; read-only, research-only scope.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- 5 · ONE FLOW -->
+      <section class="slide">
+        <div class="head r">
+          <div class="eyebrow">How it works</div>
+          <h2>One flow — a research turn, end to end</h2>
+          <div class="rule"></div>
+        </div>
+        <div class="flowwrap">
+          <div class="flow" id="flow">
+            <div class="step" data-cap="Victor DMs finn on Telegram — inbound is <b>pairing-gated</b>.">
+              <div class="si">1</div><h4>Ask</h4><p>DM the bot on Telegram</p></div>
+            <div class="step" data-cap="The authed gateway (uid 998) hands the turn to <b>Nemotron</b> via NVIDIA NIM.">
+              <div class="si">2</div><h4>Wake</h4><p>Gateway → Nemotron (NIM)</p></div>
+            <div class="step" data-cap="The agent calls <b>web_search</b> → brave, routed through the L7 proxy.">
+              <div class="si">3</div><h4>Search</h4><p>web_search → brave</p><span class="via">via L7 proxy</span></div>
+            <div class="step" data-cap="<b>web_fetch</b> → Firecrawl scrapes any public URL <b>server-side</b>, through the proxy.">
+              <div class="si">4</div><h4>Read</h4><p>web_fetch → Firecrawl</p><span class="via">via L7 proxy</span></div>
+            <div class="step" data-cap="Optional: read calendar / write Notion via the zero-dep <b>MCP tools</b> — same proxy.">
+              <div class="si">5</div><h4>Act</h4><p>calendar / Notion (MCP)</p><span class="via">optional</span></div>
+            <div class="step" data-cap="Nemotron composes the answer; it's delivered back over <b>Telegram</b>.">
+              <div class="si">6</div><h4>Answer</h4><p>reply over Telegram</p></div>
+          </div>
+          <div class="flowctl r">
+            <div class="transport">
+              <button class="tbtn" id="back" title="Step back" aria-label="Step back">⏮</button>
+              <button class="tbtn play" id="play" title="Play" aria-label="Play">▶</button>
+              <button class="tbtn" id="pause" title="Pause" aria-label="Pause">⏸</button>
+              <button class="tbtn" id="fwd" title="Step forward" aria-label="Step forward">⏭</button>
+              <span id="fstep">– / 6</span>
+            </div>
+            <div class="flowcap" id="cap">Press play — or step through. Every tool call passes through the deny-by-default proxy.</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 6 · PROACTIVE LAYER -->
+      <section class="slide">
+        <div class="head r">
+          <div class="eyebrow">The flagship feature</div>
+          <h2>Proactive event intelligence
+            <span class="statusbanner">✅ live — 3 loops</span></h2>
+          <div class="rule"></div>
+        </div>
+        <p class="r" style="margin-bottom:16px">A scheduled layer that researches <b>Singapore</b> AI events (regional APAC = a speakers/trends watch), keeps <b>Notion as the source of truth</b>, and pushes a weekly digest — built on <span class="accent">state-indirection + producer→consumer chaining</span>, with a strict <b>ownership matrix</b>: loops write facts + cadence only; decisions stay human.</p>
+        <div class="pchain r">
+          <div class="pnode"><div class="pk">Schedule</div><h4>OpenClaw cron</h4><p>native on 2026.6.x — radar daily 09:00 · trends Sun 18:00 · digest Mon 10:00</p></div>
+          <div class="parrow">→</div>
+          <div class="pnode"><div class="pk">Producer</div><h4>Conf radar</h4><p>one event / run; writes cadence + changes</p></div>
+          <div class="parrow">→</div>
+          <div class="pnode src"><div class="pk">Store</div><h4>Notion</h4><p>durable, human-curatable source of truth</p></div>
+          <div class="parrow">→</div>
+          <div class="pnode"><div class="pk">Consumer</div><h4>Weekly digest</h4><p>reads what producers wrote</p></div>
+          <div class="parrow">→</div>
+          <div class="pnode"><div class="pk">Deliver</div><h4>Telegram</h4><p>one curated message</p></div>
+        </div>
+        <div class="blocks r">
+          <div class="block"><div class="bt">BLOCKER 1 — collapsed by the upgrade</div><p>Pinned cron couldn't drive tools → <b>moved the pin</b>: OpenClaw 2026.6.10 (via a vendored, fail-closed 1-line NemoClaw patch) restored native scheduled tool-calling. All three loops <b>run live in the gateway</b> — heartbeats + digest observed over Telegram.</p></div>
+          <div class="block"><div class="bt">BLOCKER 2 — kept, by choice</div><p>The 120B executor can't loop a list → prompts stay <b>one item per run</b> with literal cadence tables (<b>strong model authors, weak model executes</b>). Erasing that scaffold is a <b>cost-per-completed-task</b> question — a bigger model may buy back the engineering.</p></div>
+        </div>
+      </section>
+
+      <!-- 7 · DEPTH OF STACK -->
+      <section class="slide">
+        <div class="head r">
+          <div class="eyebrow">The hard parts</div>
+          <h2>What made it hard — depth of stack</h2>
+          <div class="rule"></div>
+        </div>
+        <div class="chips">
+          <div class="chip r"><h3><span class="k">›</span> The egress trap</h3><p><b>Felt like:</b> the agent reporting <i>"I can't reach your calendar"</i> — while every test we ran said the calendar tool was fine. <b>Why:</b> the sandbox runs each helper tool inside a sealed private network (a <i>netns</i>) with its settings stripped — and our tests ran <i>outside</i> the seal, so they always passed. <b>Fix:</b> the tool reads the network settings off its parent process and relaunches itself with them.</p></div>
+          <div class="chip r"><h3><span class="k">›</span> Health checks that lie</h3><p><b>Felt like:</b> every standard "is it up?" check said <b>down</b> — while the agent was still replying normally on Telegram. <b>Why:</b> that same sealed network hides the server from outside probes; they can't see in. <b>Fix / lesson:</b> trust the server's <b>own log</b>, never the probe — acting on the false "down" would have restarted a healthy service in a loop.</p></div>
+          <div class="chip r"><h3><span class="k">›</span> The invisible new tool</h3><p><b>Felt like:</b> we installed the calendar tool and the config listed it — the agent still said it didn't exist. <b>Why:</b> the agent builds its tool list once and <b>caches</b> it; a settings reload updates the file, not the cache — like an app that won't appear until you reboot. <b>Fix:</b> a full restart of the agent's gateway (and even <i>finding</i> the right process to restart had a trap).</p></div>
+          <div class="chip r"><h3><span class="k">›</span> Personal-account sign-in</h3><p><b>Felt like:</b> connecting a personal Outlook calendar should be simple — but the server-style credentials corporate apps use <b>don't exist</b> for personal accounts (no company behind them). <b>Fix:</b> a one-time, phone-style <b>device-code</b> sign-in mints a long-lived token, scoped to the minimum — read-only unless write access is explicitly switched on.</p></div>
+        </div>
+        <div class="footnote r">Four bugs across four layers — sandbox networking, process lifecycle, runtime caching, and consumer OAuth. Full technical write-ups: <code>docs/LEARNINGS.md</code>.</div>
+      </section>
+
+      <!-- 8 · NEXT STEPS -->
+      <section class="slide">
+        <div class="head r">
+          <div class="eyebrow">Where it goes</div>
+          <h2>Next steps</h2>
+          <div class="rule"></div>
+        </div>
+        <div class="steps-list">
+          <div class="nstep r"><div class="num">1</div><div><div class="nt">Survive host reboots</div><div class="nd">A Mac reboot silently took the host gateway down for days (the service doesn't auto-start) — add boot auto-start + an is-finn-alive heartbeat so the outage pages instead of hides.</div></div></div>
+          <div class="nstep r"><div class="num">2</div><div><div class="nt">Re-test the model trade</div><div class="nd">The one-item-per-run scaffold exists for the 120B executor; price a bigger model per <b>cost-per-completed-task</b> and drop the scaffolding it buys back.</div></div></div>
+          <div class="nstep r"><div class="num">3</div><div><div class="nt">Teach the bootstrap the new schema</div><div class="nd">The Notion hub grew three pillars (This Quarter · People CRM · Accounts) host-side; extend <code>notion-bootstrap.mjs</code> so a from-scratch rebuild recreates them.</div></div></div>
+          <div class="nstep opt r"><div class="num">4</div><div><div class="nt">Optional hardening</div><div class="nd">Self-host Firecrawl to regain read-egress control; keep add-ons read-only for higher-trust deployments.</div></div></div>
+        </div>
+      </section>
+
+    </div><!-- /track -->
+  </div><!-- /deck -->
+</div><!-- /stage -->
+
+<!-- floating nav -->
+<div id="nav">
+  <button id="prev" aria-label="Previous">‹</button>
+  <div id="dots"></div>
+  <span id="counter"></span>
+  <button id="next" aria-label="Next">›</button>
+</div>
+<div class="hint">← → / space · F fullscreen · ⌘P → PDF</div>
+
+<script>
+(function(){
+  var track=document.getElementById('track');
+  var slides=Array.prototype.slice.call(document.querySelectorAll('.slide'));
+  var deck=document.getElementById('deck');
+  var bar=document.getElementById('bar');
+  var counter=document.getElementById('counter');
+  var dotsWrap=document.getElementById('dots');
+  var prevBtn=document.getElementById('prev'), nextBtn=document.getElementById('next');
+  var cur=0, n=slides.length;
+
+  // dots
+  slides.forEach(function(_,i){
+    var d=document.createElement('span');
+    d.addEventListener('click',function(){go(i);});
+    dotsWrap.appendChild(d);
+  });
+  var dots=Array.prototype.slice.call(dotsWrap.children);
+
+  function fit(){
+    var s=Math.min(window.innerWidth/1280, window.innerHeight/720);
+    deck.style.transform='scale('+s+')';
+  }
+  window.addEventListener('resize',fit); fit();
+
+  function go(i){
+    cur=Math.max(0,Math.min(n-1,i));
+    track.style.transform='translateX('+(-cur*100)+'%)';
+    slides.forEach(function(sl,j){ sl.classList.toggle('active', j===cur); });
+    dots.forEach(function(d,j){ d.classList.toggle('on', j===cur); });
+    counter.textContent=(cur+1)+' / '+n;
+    bar.style.width=((cur)/(n-1)*100)+'%';
+    prevBtn.disabled=cur===0; nextBtn.disabled=cur===n-1;
+    resetFlow();
+  }
+  function next(){ go(cur+1); }
+  function prev(){ go(cur-1); }
+  nextBtn.addEventListener('click',next);
+  prevBtn.addEventListener('click',prev);
+
+  document.addEventListener('keydown',function(e){
+    if(e.key==='ArrowRight'||e.key===' '||e.key==='PageDown'){ e.preventDefault(); next(); }
+    else if(e.key==='ArrowLeft'||e.key==='PageUp'){ e.preventDefault(); prev(); }
+    else if(e.key==='Home'){ go(0); }
+    else if(e.key==='End'){ go(n-1); }
+    else if(e.key.toLowerCase()==='f'){ if(!document.fullscreenElement){document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen();}else{document.exitFullscreen&&document.exitFullscreen();} }
+  });
+
+  // swipe
+  var x0=null;
+  deck.addEventListener('touchstart',function(e){ x0=e.touches[0].clientX; },{passive:true});
+  deck.addEventListener('touchend',function(e){
+    if(x0===null) return;
+    var dx=e.changedTouches[0].clientX-x0;
+    if(Math.abs(dx)>50){ dx<0?next():prev(); }
+    x0=null;
+  },{passive:true});
+
+  // flow transport (play · pause · step forward/back)
+  var steps=Array.prototype.slice.call(document.querySelectorAll('#flow .step'));
+  var cap=document.getElementById('cap');
+  var fstep=document.getElementById('fstep');
+  var backBtn=document.getElementById('back'), fwdBtn=document.getElementById('fwd');
+  var playBtn=document.getElementById('play'), pauseBtn=document.getElementById('pause');
+  var last=steps.length-1;
+  var flowIdx=-1, playing=false, timer=null;
+  var introCap='Press play — or step through. Every tool call passes through the deny-by-default proxy.';
+
+  function renderFlow(){
+    steps.forEach(function(s,i){
+      s.classList.toggle('lit', i===flowIdx);
+      s.classList.toggle('done', i<flowIdx);
+    });
+    if(flowIdx<0) cap.innerHTML=introCap;
+    else if(flowIdx>=last) cap.innerHTML=steps[last].getAttribute('data-cap')+' <b>Same proxy for every call — no side channels.</b>';
+    else cap.innerHTML=steps[flowIdx].getAttribute('data-cap');
+    fstep.textContent=(flowIdx<0?'–':(flowIdx+1))+' / '+steps.length;
+    backBtn.disabled=flowIdx<=-1;
+    fwdBtn.disabled=flowIdx>=last;
+    playBtn.disabled=playing;
+    pauseBtn.disabled=!playing;
+  }
+  function setFlow(i){ flowIdx=Math.max(-1,Math.min(last,i)); renderFlow(); }
+  function pauseFlow(){ playing=false; if(timer){clearTimeout(timer);timer=null;} renderFlow(); }
+  function resetFlow(){ playing=false; if(timer){clearTimeout(timer);timer=null;} flowIdx=-1; renderFlow(); }
+  function scheduleNext(delay){
+    clearTimeout(timer);
+    timer=setTimeout(function(){
+      if(flowIdx>=last){ pauseFlow(); return; }
+      setFlow(flowIdx+1);
+      if(flowIdx>=last){ pauseFlow(); return; }
+      scheduleNext(1150);
+    },delay);
+  }
+  function playFlow(){
+    if(flowIdx>=last) setFlow(-1);
+    playing=true; renderFlow();
+    scheduleNext(flowIdx<0?300:1150);
+  }
+  if(playBtn) playBtn.addEventListener('click',playFlow);
+  if(pauseBtn) pauseBtn.addEventListener('click',pauseFlow);
+  if(fwdBtn) fwdBtn.addEventListener('click',function(){ pauseFlow(); setFlow(flowIdx+1); });
+  if(backBtn) backBtn.addEventListener('click',function(){ pauseFlow(); setFlow(flowIdx-1); });
+
+  go(0);
+})();
+</script>
+</body>
+</html>

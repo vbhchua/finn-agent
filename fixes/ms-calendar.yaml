@@ -1,0 +1,58 @@
+# ms-calendar.yaml
+#
+# Custom NemoClaw network-policy preset: least-privilege egress for the
+# Microsoft Graph CALENDAR integration (mcp/ms-calendar-mcp.mjs). Allows the
+# sandbox to reach exactly two Microsoft hosts:
+#   - login.microsoftonline.com  — OAuth token endpoint (refresh-token grant)
+#   - graph.microsoft.com         — the Graph API (calendar read + write)
+#
+# This is a deliberate SUBSET of the built-in `outlook` preset (which also opens
+# outlook.office365.com + outlook.office.com — mailbox/EWS hosts we don't need
+# for calendar via Graph). Use this preset for calendar-only; use the built-in
+# `outlook` preset if you later add mailbox tools.
+#
+# READ vs WRITE: this preset allows GET + POST + PATCH + DELETE on Graph so the
+# same preset works for both read-only and read/write deployments. The actual
+# read-vs-write guard is NOT this method list — it is (1) the OAuth SCOPE the
+# refresh token was minted with (Calendars.Read can't write even if the network
+# allows the method — Graph returns 403), and (2) which tools the MCP server
+# exposes (write tools are gated behind MS_CALENDAR_WRITE, off by default). See
+# architecture/04-add-on-security.md (§4 item 6).
+#
+# The gateway-spawned MCP child gets a scrubbed env in the proxy-only netns, so the
+# server self-bootstraps its egress (proxy + MITM CA via re-exec — docs/LEARNINGS.md
+# §1). The requests originate from the node
+# runtime, so the binary is /usr/local/bin/node (the full production image's npm
+# prefix is /usr/local). If you switch base images, re-verify: `command -v node`.
+#
+# Same shape as fixes/firecrawl.yaml + fixes/exa.yaml: a top-level `preset:`
+# block + a `network_policies:` block. Activated BY NAME after copying into the
+# blueprint presets dir (runmod-finn-live.sh does this) — do NOT also use
+# `policy-add --from-file` or it collides (see docs/LEARNINGS.md §6).
+
+preset:
+  name: ms-calendar
+  description: Microsoft Graph calendar (read + write) — Graph API + OAuth token endpoint
+
+network_policies:
+  ms_calendar:
+    name: ms_calendar
+    endpoints:
+      - host: login.microsoftonline.com
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        rules:
+          - allow: { method: POST, path: /** }   # OAuth token / device-code
+          - allow: { method: GET, path: /** }    # OpenID discovery (diagnostics)
+      - host: graph.microsoft.com
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        rules:
+          - allow: { method: GET, path: /** }     # calendar reads, /me, $metadata
+          - allow: { method: POST, path: /** }    # create_event
+          - allow: { method: PATCH, path: /** }   # update_event
+          - allow: { method: DELETE, path: /** }  # delete_event
+    binaries:
+      - path: /usr/local/bin/node

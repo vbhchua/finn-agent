@@ -1,0 +1,45 @@
+# notion.yaml
+#
+# Custom NemoClaw network-policy preset: least-privilege egress for the Notion
+# MCP server (mcp/notion-mcp.mjs). Allows the sandbox to reach exactly one host:
+#   - api.notion.com — the Notion REST API (search, pages, blocks, databases, users)
+#
+# We use Notion's LOCAL server + an internal integration token (api.notion.com),
+# NOT the hosted Notion MCP (mcp.notion.com) — that one is OAuth-only and needs a
+# human browser flow, so it can't drive a headless sandbox. Hence only api.notion.com.
+#
+# READ vs WRITE: this preset allows GET + POST + PATCH so the same preset works for
+# both read-only and read/write deployments (Notion has no DELETE — archiving a page
+# is a PATCH with archived=true). The actual read-vs-write guard is NOT this method
+# list — it is (1) the Notion integration's capability (a Read-content-only token
+# gets 403 on writes even if the network allows the method), and (2) which tools the
+# MCP server exposes (write tools are gated behind NOTION_WRITE=1, off by default).
+#
+# Egress in finn is proxy-only + TLS-intercepted, and OpenClaw scrubs an MCP child's
+# env — so the server self-bootstraps the proxy + CA (see mcp/notion-mcp.mjs "THE
+# EGRESS TRAP"). The requests originate from the node runtime, so the binary is
+# /usr/local/bin/node (the base image's npm prefix is /usr/local).
+#
+# Same shape as fixes/firecrawl.yaml + fixes/ms-calendar.yaml: a top-level `preset:`
+# block + a `network_policies:` block. Activated BY NAME after copying into the
+# blueprint presets dir (runmod-notion-live.sh does this) — do NOT also use
+# `policy-add --from-file` or it collides (see docs/LEARNINGS.md §6).
+
+preset:
+  name: notion
+  description: Notion REST API (read + write) — api.notion.com
+
+network_policies:
+  notion:
+    name: notion
+    endpoints:
+      - host: api.notion.com
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        rules:
+          - allow: { method: GET, path: /** }     # get_page, get_page_content, get_database, whoami
+          - allow: { method: POST, path: /** }    # search, query_database, create_page
+          - allow: { method: PATCH, path: /** }   # update_page (incl. archive), append_blocks
+    binaries:
+      - path: /usr/local/bin/node
