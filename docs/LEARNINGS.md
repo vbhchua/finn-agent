@@ -86,6 +86,11 @@ port unbound while it is perfectly healthy.
   can't resolve *any* external host (all real egress resolves via the proxy). Pin the endpoint
   in `/etc/hosts` with **any public IP**: the precheck passes, and the actual request still goes
   through the proxy, so the pinned IP never needs to be current.
+- **Policy `binaries` are enforced by the egress proxy — a `curl` probe 403s even when the
+  policy is live.** A preset that lists `binaries: [openclaw, node]` opens the endpoint only for
+  those executables; probing it with curl from the gateway netns returns *"CONNECT tunnel
+  failed, response 403"* and looks like a broken policy. Probe with `/usr/local/bin/node`
+  (`NODE_USE_ENV_PROXY=1` + the proxy env + MITM CA) — the same binary the real traffic uses.
 - **`proxy.loopbackMode=gateway-only` is load-bearing, not a tweak.** With the stock `proxy`
   mode on this topology, the embedded agent's own loopback RPC to the gateway
   (127.0.0.1:18789) is routed into the OPA egress layer, which blocks
@@ -128,6 +133,13 @@ a rebuild.
   or keep the file self-contained under a unique name.
 - **Credentials are snapshotted at submit/onboard time** — fix creds *before* the operation
   that consumes them, not after.
+- **A resumed onboard skips the OpenClaw config step — and the model pin goes stale.** Switching
+  inference provider/model on an existing sandbox via `onboard` + resume leaves
+  `agents.defaults.model.primary` at the old value, and the compatible-endpoint smoke check
+  fails hard with *"agents.defaults.model.primary is '…'; expected 'inference/<model>'"*. The
+  check is right: with the stale pin, every agent turn would request the old model ID from the
+  new endpoint. Fix = rewrite the sandbox model config (see `runmod-models-live.sh`) and TERM
+  the gateway worker; the smoke check then passes unchanged.
 
 ## 7. Scheduling agent work on a pinned platform
 

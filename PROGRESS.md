@@ -32,6 +32,26 @@ new dated entry at the top as work lands.
 
 ## 2026-07-07
 
+- **Inference switched to Kimi K2.6 (Moonshot AI) via the gateway's `compatible-endpoint`
+  provider; OpenRouter wired as an optional direct fallback route (`runmod-models-live.sh`).**
+  The sandbox keeps calling the managed `inference.local` route — the HOST gateway now forwards
+  it to `https://api.moonshot.ai/v1` (key gateway-side only; the sandbox config keeps the
+  non-secret `apiKey: "unused"` placeholder, so NemoClaw's compatible-endpoint smoke check
+  passes as-is). Root cause of the initial smoke failure: a **resumed** onboard skips the
+  OpenClaw config step, leaving `agents.defaults.model.primary` pinned to the previous model
+  (`inference/nvidia/nemotron-3-super-120b-a12b` vs expected `inference/kimi-k2.6`) — the new
+  runmod rewrites the model block idempotently and TERM-restarts the gateway worker
+  (LEARNINGS §6). Second path: `fixes/openrouter.yaml` opens `openrouter.ai` egress for
+  OpenClaw's **built-in** openrouter provider (`openrouter/<author>/<slug>` refs +
+  `OPENROUTER_API_KEY` in config env — no `models.providers` block needed); default fallback
+  `openrouter/moonshotai/kimi-k2.6` = the same model over an independent route. Verified live:
+  `kimi-k2.6` PONG through `inference.local` from the gateway netns (0.4 s, `reasoning_content`
+  present — K2.6 runs as a thinking model), a no-tool agent PONG end-to-end, and
+  `openrouter.ai/api/v1/models` 200 through the egress proxy **as node** — a curl probe 403s
+  because policy `binaries` are enforced (LEARNINGS §4). `.env.sample` gains
+  `MOONSHOT_API_KEY` (consumed at onboard by the gateway provider) + `OPENROUTER_API_KEY`
+  (consumed by the runmod).
+
 - **topic-trends sharded: all-topics-per-run → two-topics-per-run daily rotation.** A live
   sequential test of all three cron jobs at shared-endpoint evening peak (25 concurrent requests,
   ~3 gen tok/s — vs 9 / ~67 tok/s the same morning) showed the all-topics run cannot fit its 900s
