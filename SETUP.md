@@ -68,11 +68,6 @@ NOTION_WRITE=1 ./runmod-notion-live.sh    # drop NOTION_WRITE for read-only
 ./runmod-models-live.sh
 ```
 
-**Host resilience (macOS):** `./tools/install-gateway-launchagent.sh` installs a launchd
-LaunchAgent (`com.nemoclaw.openshell-gateway`, RunAtLoad + KeepAlive) for the host gateway —
-without it, a reboot kills the gateway and nothing restarts it (the sandbox then crash-loops
-while looking perfectly like a container problem — [docs/LEARNINGS.md](docs/LEARNINGS.md) §9).
-
 **Minimal search-only variant:** a stock `nemoclaw onboard --name finn` (no `--from`) is a
 working agent by itself — gateway + brave web search, OpenClaw 2026.5.x era. `setup-finn.sh`
 adds the two things that aren't out-of-the-box on either path: full-page **fetch** via
@@ -493,9 +488,8 @@ then `--from-file` works.)
 
 ### Symptom: `doctor` flags `openshell-cluster-nemoclaw not found`
 
-On **macOS** the OpenShell gateway runs as a **host process** (a launchd LaunchAgent installed
-by `tools/install-gateway-launchagent.sh`; the binary is configured entirely via env vars), not
-a container — confirm with `openshell status` (→ `Connected`). `doctor`'s "`[fail]` Docker container:
+On **macOS** the OpenShell gateway runs as a **host process** (`/opt/homebrew/bin/openshell-gateway`,
+supervised by `nemoclaw`), not a container — confirm with `openshell status` (→ `Connected`). `doctor`'s "`[fail]` Docker container:
 openshell-cluster-nemoclaw not found" is a topology false-negative for that layout; the gateway is fine.
 **Do not** rename the `openshell-finn-<uuid>` container to match — that's the *sandbox*, and its name is
 how NemoClaw finds it; renaming orphans every `nemoclaw finn` command.
