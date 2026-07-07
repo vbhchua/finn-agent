@@ -267,8 +267,10 @@ What it sets up:
 - **`finn-conf-radar`** (daily 09:00 SGT) — re-checks UPCOMING events on an adaptive cadence
   (tighter as the event nears), updates the events DB, Telegram-pings on a material change
   (1-line `🟢`/`🔔` heartbeat each run).
-- **`finn-topic-trends`** (weekly Sun 18:00 SGT, silent) — snapshots which `Themes` are gaining/
-  losing traction into `finn · Trend snapshots`.
+- **`finn-topic-trends`** (daily 09:30 SGT, silent) — snapshots the **two least-recently-refreshed**
+  watch-topics into `finn · Trend snapshots` (rotation cursor: Topics.`Last snapshot`; the full
+  watchlist turns over ≈ weekly). Sharded two-per-run so each run stays inside the 900s job
+  budget and a small context even at shared-endpoint peak load.
 - **`finn-weekly-digest`** (Mon 10:00 SGT) — the one routine Telegram message: upcoming-soon,
   this-week's updates, trend movers, finn's `Proposed` events.
 

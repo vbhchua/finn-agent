@@ -30,7 +30,22 @@ new dated entry at the top as work lands.
 
 ---
 
-## 2026-07-06
+## 2026-07-07
+
+- **topic-trends sharded: all-topics-per-run → two-topics-per-run daily rotation.** A live
+  sequential test of all three cron jobs at shared-endpoint evening peak (25 concurrent requests,
+  ~3 gen tok/s — vs 9 / ~67 tok/s the same morning) showed the all-topics run cannot fit its 900s
+  job budget under load (`cron: job execution timed out`, 0 of 15 snapshots written), and projected
+  context/cost budgets (~173k of a 262K window, ~6M processed tokens per run) made it the first
+  loop to hit every ceiling as the watchlist grows. The fix: `radar/prompts/topic-trends.md` now
+  processes EXACTLY TWO topics per run — the two oldest by a new Topics.`Last snapshot` date
+  (stamped by the run itself), so 15 watched topics rotate fully ≈ weekly at ~25k context /
+  ~3 min per run. The schedule moves from Sun 18:00 (evening peak — the slow lane) to daily
+  09:30 SGT, staggered behind conf-radar. The emerging-topic scan leaves the loop (it was the
+  unbounded-growth source) and becomes a deep-refresh duty. Also: `notion-bootstrap.mjs` creates
+  the new column, and the weekly-digest queries gain explicit limits (15/10) so its fan-in stays
+  bounded as the events DB grows. Endpoint-independent: the shard is a prerequisite for any model
+  choice, not an alternative to one (an unsharded run needs ~100+ tok/s sustained to fit 900s).
 
 - **README/SETUP now lead with the golden path** — the stack finn actually runs: onboard the
   **OpenClaw 2026.6.10** image (`--from Dockerfile.finn-2026.6.10`), then all five steps standard
