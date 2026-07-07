@@ -11,8 +11,10 @@ set -euo pipefail
 #   • Feature 4 — Conference Radar: a DAILY gateway cron job that re-checks UPCOMING events on an
 #     adaptive cadence (tighter as an event nears), updates "📅 AI Events — Singapore", and
 #     Telegram-pings on a material change.
-#   • Feature 5 — Topic Trends: a WEEKLY cron job that snapshots which Themes are gaining/losing
-#     traction (writes "finn · Trend snapshots"; silent — feeds the digest).
+#   • Feature 5 — Topic Trends: a DAILY cron job that snapshots the TWO least-recently-refreshed
+#     watch-topics (rotation cursor: Topics."Last snapshot"; full watchlist ≈ weekly), writing
+#     "finn · Trend snapshots"; silent — feeds the digest. Sharded two-per-run so a run fits the
+#     900s job budget + a small context even at shared-endpoint peak load.
 #   • Weekly digest: a MONDAY cron job that reports both to Telegram in one message.
 #
 # Strong-model-authors / weak-model-executes: a frontier model (Opus 4.8) did the one-time data
@@ -144,7 +146,7 @@ DELIVER="--announce --channel telegram"
 # limit reached" and killed the digest on its first turn. 10:00 also lets the digest read that
 # morning's fresh conf-radar updates instead of racing them.
 add_job finn-conf-radar    "0 9 * * *"  "--session-key agent:main:conf-radar $DELIVER"        conf-radar
-add_job finn-topic-trends  "0 18 * * 0" "--session-key agent:main:topic-trends --no-deliver"  topic-trends
+add_job finn-topic-trends  "30 9 * * *" "--session-key agent:main:topic-trends --no-deliver"  topic-trends
 add_job finn-weekly-digest "0 10 * * 1" "--session-key agent:main:weekly-digest $DELIVER"     weekly-digest
 
 # --- 7. Verify ----------------------------------------------------------------------------------
@@ -160,7 +162,7 @@ fi
 cat <<EOF
 
 ==> Done.
-   Jobs:  finn-conf-radar (daily 09:00 $TZ_CRON) · finn-topic-trends (Sun 18:00) · finn-weekly-digest (Mon 10:00)
+   Jobs:  finn-conf-radar (daily 09:00 $TZ_CRON) · finn-topic-trends (daily 09:30, 2-topic rotation) · finn-weekly-digest (Mon 10:00)
    State: extended "📅 AI Events — Singapore" (+ Last checked / Next check due / Latest change);
           new "finn · Topics" + "finn · Trend snapshots" under the BD Intelligence Hub;
           12 APAC events seeded as Status=Proposed (review in the Monday digest).

@@ -129,12 +129,15 @@
     <h1><span class="g">finn</span> · Conference Radar — <span class="g">diagnosis · proposal · shipped</span></h1>
     <p class="sub">Feature 4 of finn's proactive layer: re-check the <b>upcoming Singapore AI events</b> (9 at diagnosis time) in Notion, update each, and ping Victor on Telegram when something material changes (new keynote / NVIDIA confirmed / date or venue move). Click any node for detail. Toggle the three states.</p>
     <div style="margin:16px 0 0;padding:12px 16px;border:1px solid #cfe3a8;border-radius:12px;background:var(--green-l,#eef6e0);font-size:13.5px;line-height:1.5;color:#3c5d00">
-      <b>OUTCOME — what actually shipped (2026-06-27 → 2026-07-06):</b> neither state below is the live design —
+      <b>OUTCOME — what actually shipped (2026-06-27 → 2026-07-07):</b> neither state below is the live design —
       <b>the pin itself moved</b>. OpenClaw <b>2026.6.10</b> (enabled by a vendored, fail-closed 1-line NemoClaw patch)
       restored native in-gateway scheduled tool-calling, so the three loops run live as <b>OpenClaw cron jobs</b>:
-      conf-radar daily 09:00 SGT · topic-trends Sun 18:00 · weekly digest <b>Mon 10:00</b> (staggered off the 09:00
-      collision). One-event-per-run was <b>kept deliberately</b> for the 120B executor. Toggle <b>✅ Shipped</b> for
-      the live design; the two 2026-06-25 states are preserved as the diagnosis + proposal that led there.
+      conf-radar daily 09:00 SGT · topic-trends <b>daily 09:30 — two topics per run</b> · weekly digest <b>Mon 10:00</b>
+      (staggered off the 09:00 collision). Small-batch-per-run was <b>kept deliberately</b> for the 120B executor —
+      and extended on 2026-07-07, when a live load test at shared-endpoint peak (~3 gen tok/s vs ~67 off-peak) showed
+      the all-topics trends run couldn't fit its 900s job budget: it now rotates the watchlist two topics at a time.
+      Toggle <b>✅ Shipped</b> for the live design; the two 2026-06-25 states are preserved as the diagnosis + proposal
+      that led there.
     </div>
   </header>
 
@@ -244,7 +247,7 @@ const DATA = {
     ],
     stages:[
       {ico:'⏰',h:'OpenClaw gateway cron',sub:'3 jobs · native on 2026.6.10',status:'ok',count:'3 jobs',
-       li:['finn-conf-radar — daily 09:00 SGT','finn-topic-trends — Sun 18:00','finn-weekly-digest — <b>Mon 10:00</b> (staggered)'],
+       li:['finn-conf-radar — daily 09:00 SGT','finn-topic-trends — daily 09:30 (2-topic rotation)','finn-weekly-digest — <b>Mon 10:00</b> (staggered)'],
        detail:'The fix that shipped was neither state on the left: <b>the pin itself moved</b>. NemoClaw was bumped to v0.0.68 and a vendored, fail-closed 1-line patch let the OpenClaw <b>2026.6.10</b> image build — on 2026.6.x scheduled cron runs are tool-primed natively, so gateway cron is back as the scheduler with no host timers. The digest was staggered to Mon 10:00 after colliding with the 09:00 radar run.'},
       {ico:'🔎',h:'Due-selection in Notion',sub:'server-side date filter',status:'ok',fan:true,
        li:['<code>Status = Upcoming</code>','<code>AND Next check due ≤ today</code>','tier × proximity sets the cadence'],
@@ -340,7 +343,7 @@ function play(){
 }
 
 document.getElementById('siblings').innerHTML=
-  `<b>The other two loops (same walls, same fixes):</b> &nbsp;• <b>topic-trends</b> (Sun 18:00, silent) got the same <b>one-batch-per-run</b> treatment and runs live. &nbsp;• <b>weekly-digest</b> (<b>Mon 10:00</b> — staggered off the 09:00 radar collision) is a simple read-and-compose single run. &nbsp;<b>Root cause was two independent walls:</b> the <b>2026.6.10 upgrade</b> fixed the <i>plumbing</i> (scheduled runs are tool-primed) — exactly the "newer OpenClaw" path; the <b>1-event decomposition</b> fixed the <i>weak executor</i> (Nemotron finishes) and was <b>kept even after the upgrade</b>.`;
+  `<b>The other two loops (same walls, same fixes):</b> &nbsp;• <b>topic-trends</b> (daily 09:30, silent) got the same small-batch treatment — sharded 2026-07-07 to <b>two topics per run</b> rotating on a <code>Last snapshot</code> cursor, after a load test at shared-endpoint peak (~3 gen tok/s) showed the all-topics run couldn't fit its 900s job budget. &nbsp;• <b>weekly-digest</b> (<b>Mon 10:00</b> — staggered off the 09:00 radar collision) is a simple read-and-compose single run. &nbsp;<b>Root cause was two independent walls:</b> the <b>2026.6.10 upgrade</b> fixed the <i>plumbing</i> (scheduled runs are tool-primed) — exactly the "newer OpenClaw" path; the <b>small-batch decomposition</b> fixed the <i>weak executor</i> (Nemotron finishes) and was <b>kept even after the upgrade</b>.`;
 
 render();
 </script>

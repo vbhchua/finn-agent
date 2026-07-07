@@ -23,7 +23,7 @@ Let TODAY = the date of this run.
 ## Gather (4 short queries)
 1. **Upcoming soon** — `notion__query_database` `{{EVENTS_DB}}`, filter
    `{ "and": [ { "property": "Status", "select": { "equals": "Upcoming" } },
-   { "property": "Date", "date": { "next_month": {} } } ] }`, sorts by `Date` ascending.
+   { "property": "Date", "date": { "next_month": {} } } ] }`, sorts by `Date` ascending, limit 15.
    These are events within ~30 days → the ones to act on now.
 2. **Recently changed** — `notion__query_database` `{{EVENTS_DB}}`, filter
    `{ "property": "Latest change", "rich_text": { "contains": "TODAY-minus-7" } }` is unreliable;
@@ -31,7 +31,7 @@ Let TODAY = the date of this run.
    `Latest change` mentions a date within the last 7 days (new keynote / NVIDIA confirmed / venue
    or date change). These are this week's material updates.
 3. **Proposed** — `notion__query_database` `{{EVENTS_DB}}` for any row whose `Latest change` contains
-   "Proposed by finn" (events finn discovered and needs Victor to confirm/tier).
+   "Proposed by finn" (events finn discovered and needs Victor to confirm/tier), limit 10.
 4. **Trend movers** — `notion__query_database` `{{TRENDS_DB}}`, sorts `[{ "property": "Date",
    "direction": "descending" }]`, limit 40. Keep only rows dated within the last 8 days (this
    week's snapshot). Identify the top risers (`Delta vs last` = `↑ up`, highest `Score`) and any

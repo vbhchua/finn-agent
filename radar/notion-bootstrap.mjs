@@ -158,6 +158,7 @@ const TOPICS_DEF = {
     'Aliases': { rich_text: {} },
     'Status': { select: { options: ['Watched', 'Proposed', 'Muted'].map((name) => ({ name })) } },
     'Why it matters': { rich_text: {} },
+    'Last snapshot': { date: {} },            // rotation cursor: the daily trends run refreshes the 2 oldest
   },
 };
 const TRENDS_DEF = {
