@@ -62,7 +62,16 @@ NOTION_WRITE=1 ./runmod-notion-live.sh    # drop NOTION_WRITE for read-only
 # 5. Conference Radar + Topic-Trend loops — needs the Notion connector (step 4);
 #    builds on the event-intelligence Notion:
 ./runmod-conference-radar-live.sh         # DRYRUN=1 also runs the radar once
+
+# 6. Model providers — Kimi K2.6 primary (+ optional OpenRouter fallback), see
+#    "Model providers" below:
+./runmod-models-live.sh
 ```
+
+**Host resilience (macOS):** `./tools/install-gateway-launchagent.sh` installs a launchd
+LaunchAgent (`com.nemoclaw.openshell-gateway`, RunAtLoad + KeepAlive) for the host gateway —
+without it, a reboot kills the gateway and nothing restarts it (the sandbox then crash-loops
+while looking perfectly like a container problem — [docs/LEARNINGS.md](docs/LEARNINGS.md) §9).
 
 **Minimal search-only variant:** a stock `nemoclaw onboard --name finn` (no `--from`) is a
 working agent by itself — gateway + brave web search, OpenClaw 2026.5.x era. `setup-finn.sh`
@@ -113,6 +122,38 @@ its single allow-listed endpoint (`api.firecrawl.dev`), so you never have to all
 every site the agent wants to read.
 
 ---
+
+## Model providers: Kimi K2.6 primary + OpenRouter fallback
+
+finn's inference is **provider-swappable without touching the sandbox's security posture**.
+The sandbox always calls the managed `https://inference.local/v1` route; what answers is
+decided host-side:
+
+- **Primary — Kimi K2.6 (Moonshot AI)** through the HOST gateway's `compatible-endpoint`
+  provider, which forwards to `https://api.moonshot.ai/v1`. The provider is registered at
+  `nemoclaw onboard` (pick *"Other OpenAI-compatible endpoint"*, paste `MOONSHOT_API_KEY`) —
+  the key lives gateway-side only; the sandbox config keeps the non-secret
+  `apiKey: "unused"` placeholder, which NemoClaw's onboarding smoke check asserts.
+- **Fallback — OpenRouter (optional)** via OpenClaw's **built-in** openrouter provider:
+  `OPENROUTER_API_KEY` in the config env + `openrouter/<author>/<slug>` model refs (no
+  `models.providers` block needed). This is a *direct* call from the gateway netns, so it
+  needs the `fixes/openrouter.yaml` egress preset. Default fallback model:
+  `openrouter/moonshotai/kimi-k2.6` — the same model over an independent route.
+
+`./runmod-models-live.sh` applies all of it idempotently: activates the openrouter egress
+preset, rewrites the sandbox model block (`agents.defaults.model.primary` →
+`inference/kimi-k2.6`, model entry, env key + fallbacks when `OPENROUTER_API_KEY` is set),
+TERM-restarts the gateway, and verifies with a PONG probe from the gateway netns. Override
+knobs: `KIMI_MODEL`, `KIMI_CONTEXT_WINDOW`, `KIMI_MAX_TOKENS`, `OPENROUTER_MODEL`.
+
+Two traps to know (details: [docs/LEARNINGS.md](docs/LEARNINGS.md) §4 + §6):
+
+- **A resumed onboard skips the OpenClaw config step**, leaving the old model pinned — the
+  compatible-endpoint smoke check then fails with *"agents.defaults.model.primary is '…';
+  expected 'inference/<model>'"*. Run the runmod, then re-run the onboard.
+- **Egress policies enforce `binaries`** — probing `openrouter.ai` with curl returns
+  *"CONNECT tunnel failed, response 403"* even when the policy is live; probe with
+  `/usr/local/bin/node` (the binary the real traffic uses).
 
 ## Variant: Exa search instead of Brave
 
@@ -452,7 +493,8 @@ then `--from-file` works.)
 
 ### Symptom: `doctor` flags `openshell-cluster-nemoclaw not found`
 
-On **macOS** the OpenShell gateway runs as a **host process** (`/usr/local/bin/openshell-gateway`), not
+On **macOS** the OpenShell gateway runs as a **host process** (a launchd LaunchAgent installed
+by `tools/install-gateway-launchagent.sh`; the binary is configured entirely via env vars), not
 a container — confirm with `openshell status` (→ `Connected`). `doctor`'s "`[fail]` Docker container:
 openshell-cluster-nemoclaw not found" is a topology false-negative for that layout; the gateway is fine.
 **Do not** rename the `openshell-finn-<uuid>` container to match — that's the *sandbox*, and its name is
@@ -478,7 +520,7 @@ cid=$(docker ps --filter name=openshell-finn --format '{{.Names}}')
 docker exec -u 0 "$cid" sh -c 'tail -n 30 /tmp/gateway.log' | grep -iE "http server listening|\[gateway\] ready"
 ```
 
-A log that simply *stops* is usually **idle** (Nemotron calls are slow — one took 141s), not hung. If
+A log that simply *stops* is usually **idle** (model calls can be slow — one Nemotron-era call took 141s), not hung. If
 it's genuinely stuck, force a relaunch — the `nemoclaw-start` supervisor brings up a fresh gateway:
 
 ```bash
