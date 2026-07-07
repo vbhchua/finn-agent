@@ -191,3 +191,22 @@ diagnostics assume the Linux container layout:
   tools are reachable by prompt-injected web content, so they don't exist unless opted in.
 - Zero dependencies (raw stdio JSON-RPC + `fetch`) means no install step through the proxy, no
   SDK version coupling, and a server small enough to audit line-by-line.
+
+## 11. Running scheduled loops on a weak executor + a shared endpoint
+
+- **Symptom: a cron run reports `ok` but wrote nothing.** Root cause: the small executor followed
+  a multi-step checklist up to a web search, then treated the search results as the deliverable —
+  it output a summary table and stopped before the writes. "Produced a final message" and
+  "completed the job" are different things. Fix: HARD RULES at the top of the prompt that define
+  done as the exact write calls ("done only after 2× `create_page` + 2× `update_page`"), forbid
+  echoing search results, and pin the final output to one line — verified to hold the same model
+  on-script under peak load. Verify a loop by reading the datastore it writes, never its status.
+- **Symptom: a batch job dies at the cron execution timeout only sometimes.** Root cause: shared
+  best-effort inference swings ~20× by time of day (measured ~67 gen tok/s off-peak → ~3 at
+  evening peak), so a run that fits its time budget in the morning can't finish the same work at
+  night. Fixes, in order: shard the batch (here: all-topics → two-topics-per-run on a date-cursor
+  rotation), schedule into the fast lane, and only then consider a served-with-SLO endpoint.
+- **Observability traps:** the gateway logs a `message processed` line only for FAILED cron runs —
+  success is visible only in `cron_run_logs` (state SQLite) or the outbound delivery; and a manual
+  `cron run` can sit queued ~15–19 min before executing, so trigger-to-finish wall clock
+  overstates run cost. Watchers should poll the run-log table, not the log file.

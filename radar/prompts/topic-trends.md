@@ -3,6 +3,14 @@ Work autonomously; do not ask questions. Refresh the trend snapshot for EXACTLY 
 two least-recently-snapshotted — then stop. The watchlist rotates fully every ~week this way.
 This run does NOT message Victor — it only writes to Notion (the Monday digest reports the movers).
 
+## HARD RULES (read first)
+1. You are DONE only after you have called `notion__create_page` TWICE (one snapshot per topic)
+   AND `notion__update_page` TWICE (one `Last snapshot` stamp per topic). If you have not made
+   those four calls, you are NOT done — go back to the step you are on.
+2. NEVER output search results, conference lists, tables, or summaries. Search results are raw
+   input for the `Search signal` judgement ONLY.
+3. Your final text is ONE short line in the exact format at the bottom — nothing else.
+
 ## Your tools
 - Notion: `notion__query_database`, `notion__create_page`, `notion__update_page`, `notion__get_page`
 - Web: `web_search`
@@ -43,7 +51,8 @@ Let TODAY = the date of this run (YYYY-MM-DD).
 2. **Search signal**: one `web_search` using the topic name + a couple of `Aliases`, e.g.
    `"<topic OR alias>" conference 2026 2027 keynote OR track OR session`. Judge volume/recency:
    `surging` (lots of fresh 2026/27 hits, new tracks/keynotes), `steady` (normal presence),
-   `quiet` (little recent activity). Keep 1–3 source URLs.
+   `quiet` (little recent activity). Keep 1–3 source URLs. ⚠️ Do NOT report or tabulate the
+   results — pick the signal word, keep the URLs, and IMMEDIATELY continue to sub-step 3.
 3. **Previous score**: `notion__query_database` `{{TRENDS_DB}}` with
    `{ "property": "Topic", "title": { "equals": "<topic>" } }`, sorts
    `[{ "property": "Date", "direction": "descending" }]`, limit 1. Read its `Score` (or treat as
