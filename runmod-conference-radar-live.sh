@@ -162,7 +162,7 @@ fi
 cat <<EOF
 
 ==> Done.
-   Jobs:  finn-conf-radar (daily 09:00 $TZ_CRON) · finn-topic-trends (Sun 18:00) · finn-weekly-digest (Mon 10:00)
+   Jobs:  finn-conf-radar (daily 09:00 $TZ_CRON) · finn-topic-trends (daily 09:30, 2-topic rotation) · finn-weekly-digest (Mon 10:00)
    State: extended "📅 AI Events — Singapore" (+ Last checked / Next check due / Latest change);
           new "finn · Topics" + "finn · Trend snapshots" under the BD Intelligence Hub;
           12 APAC events seeded as Status=Proposed (review in the Monday digest).
