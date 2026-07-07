@@ -1,0 +1,43 @@
+# ios-push.yaml
+#
+# Custom NemoClaw network-policy preset: least-privilege egress for iOS
+# background wake pushes. Allows the sandbox to reach exactly one host:
+#   - ios-push-relay.openclaw.ai — OpenClaw's hosted APNs relay
+#
+# Why a relay and not APNs directly: official App Store builds of the OpenClaw
+# iOS app never hand the gateway a raw APNs token. Instead the app registers
+# with the hosted relay (App Attest + StoreKit proof), delegates that
+# registration to THIS gateway's identity, and hands the gateway an opaque
+# relay handle via `push.apns.register`. The GATEWAY then calls the relay for
+# `push.test`, reconnect wakes, and wake nudges — which is the egress this
+# preset allows. Docs: https://docs.openclaw.ai/platforms/ios
+#
+# OPTIONAL: without this preset the iOS app still works fully while
+# foregrounded/connected; only background wake pushes are lost.
+#
+# The caller is the gateway process itself (not an MCP child), so the binary
+# list covers both the openclaw entrypoint and the node runtime that backs it.
+#
+# Same shape as fixes/notion.yaml: a top-level `preset:` block + a
+# `network_policies:` block. Activated BY NAME after copying into the blueprint
+# presets dir (runmod-finn-ios-live.sh does this) — do NOT also use
+# `policy-add --from-file` or it collides (see docs/LEARNINGS.md §6).
+
+preset:
+  name: ios-push
+  description: OpenClaw hosted APNs push relay — ios-push-relay.openclaw.ai
+
+network_policies:
+  ios-push:
+    name: ios-push
+    endpoints:
+      - host: ios-push-relay.openclaw.ai
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        rules:
+          - allow: { method: GET, path: /** }     # relay registration reads
+          - allow: { method: POST, path: /** }    # relay-backed sends (push.test, wake nudges)
+    binaries:
+      - path: /usr/local/bin/openclaw
+      - path: /usr/local/bin/node

@@ -288,6 +288,47 @@ full rebuild (cron jobs live in the gateway and are lost on a fresh `onboard`).
 
 ---
 
+## Add-on: OpenClaw iOS app (via Tailscale Serve)
+
+Pairs the [OpenClaw iOS app](https://docs.openclaw.ai/platforms/ios) with finn, making the
+iPhone a node (chat, canvas, camera, read-only workspace browsing, Apple Watch companion).
+
+**Why Tailscale Serve:** the gateway is loopback-bound inside the sandbox's own netns — a phone
+can't reach it, and Bonjour discovery can't see it (mDNS is disabled in that netns). The host's
+`ssh-proxy` already forwards host `127.0.0.1:18789` → the sandbox gateway, so Serve publishes
+that forward as `https://<mac>.<tailnet>.ts.net` — reachable from anywhere on the tailnet, TLS
+included, nothing exposed to the LAN.
+
+One-time prerequisites (interactive): Tailscale on the Mac (`brew install --cask tailscale-app`)
+and on the iPhone, same tailnet; **MagicDNS + HTTPS Certificates** enabled in the
+[tailnet DNS settings](https://login.tailscale.com/admin/dns).
+
+```bash
+./runmod-finn-ios-live.sh              # serve 443→18789 + allow the tailnet origin + gateway restart
+IOS_PUSH=1 ./runmod-finn-ios-live.sh   # …also allow the APNs push-relay egress (background wakes)
+```
+
+Then pair: Control UI (`http://127.0.0.1:18789`) → **Nodes** → **Pair mobile device** → scan the
+QR from the iOS app (Settings → Gateway). Don't wait for the app's discovered-gateways list — it
+stays empty on this topology; fall back to **Manual Host** (`<mac>.<tailnet>.ts.net`, port 443)
+if needed. Approve a pending pairing request and verify with the gateway-netns wrapper:
+
+```bash
+ctr=$(docker ps --filter name=openshell-finn --format '{{.Names}}' | head -1)
+docker exec -u 0 "$ctr" /sandbox/.cache/radar/gw-cron.sh devices list
+docker exec -u 0 "$ctr" /sandbox/.cache/radar/gw-cron.sh devices approve <requestId>
+docker exec -u 0 "$ctr" /sandbox/.cache/radar/gw-cron.sh nodes status
+```
+
+The Serve mapping and Tailscale login live on the **host** and survive sandbox rebuilds; the
+`allowedOrigins` patch and the `ios-push` policy live in the sandbox/gateway and are **lost on a
+full rebuild** — re-run the runmod. Background wake pushes need the `IOS_PUSH=1` egress
+(`fixes/ios-push.yaml`); without it the app works fully only while foregrounded/connected.
+Messages sent while the Mac is asleep or the gateway is down queue in the app's per-gateway
+outbox (up to 50, expire after 48 h) and flush on reconnect.
+
+---
+
 ## Manual steps (if you need to run them separately)
 
 ### Create / recreate the sandbox

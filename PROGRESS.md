@@ -30,7 +30,21 @@ new dated entry at the top as work lands.
 
 ---
 
-## 2026-07-06
+## 2026-07-07
+
+- **iOS node add-on: `runmod-finn-ios-live.sh` + `fixes/ios-push.yaml`** — pairs the
+  [OpenClaw iOS app](https://docs.openclaw.ai/platforms/ios) with a live finn over **Tailscale
+  Serve**. The topology problem it solves: the gateway is loopback-bound inside the sandbox's own
+  netns, so a phone can't reach it and Bonjour can't advertise it (mDNS is disabled in that netns) —
+  but the host's `ssh-proxy` already forwards host `127.0.0.1:18789` → sandbox gateway, so Serve
+  publishes that existing forward as `https://<mac>.<tailnet>.ts.net` (tailnet-only, TLS, zero LAN
+  exposure). The runmod resolves the tailnet URL, starts Serve, patches
+  `gateway.controlUi.allowedOrigins` (idempotent), TERM-restarts the gateway worker with
+  log-authoritative verification, and prints the QR-pairing + `devices approve` steps (reusing
+  `radar/gw-cron.sh` for gateway-netns CLI calls). Optional `IOS_PUSH=1` activates a
+  least-privilege egress preset for `ios-push-relay.openclaw.ai` — the hosted APNs relay the
+  *gateway* must call for background wake pushes (foreground use needs no extra egress). SETUP.md
+  gains the matching add-on section.
 
 - **README/SETUP now lead with the golden path** — the stack finn actually runs: onboard the
   **OpenClaw 2026.6.10** image (`--from Dockerfile.finn-2026.6.10`), then all five steps standard
