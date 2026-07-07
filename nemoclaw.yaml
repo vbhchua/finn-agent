@@ -16,8 +16,15 @@ sandbox:
   harness: openclaw            # OpenClaw gateway (not Hermes)
 
 inference:
-  provider: nvidia             # → inference.local (NIM hosted)
-  model: nvidia/nemotron-3-super-120b-a12b
+  provider: compatible-endpoint  # → inference.local; HOST gateway forwards to
+                                 #   https://api.moonshot.ai/v1 (MOONSHOT_API_KEY,
+                                 #   registered gateway-side at onboard)
+  model: kimi-k2.6               # Kimi K2.6 (Moonshot); switched from
+                                 #   nvidia/nemotron-3-super-120b-a12b on 2026-07-07
+  fallbacks:
+    - openrouter/moonshotai/kimi-k2.6  # optional DIRECT route via OpenClaw's built-in
+                                       #   openrouter provider (OPENROUTER_API_KEY +
+                                       #   fixes/openrouter.yaml; runmod-models-live.sh)
 
 # Search is brave (built in). Fetch is the optional Firecrawl layer that
 # setup-finn.sh adds at runtime when FIRECRAWL_API_KEY is set (full-page web_fetch

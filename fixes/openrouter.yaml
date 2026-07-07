@@ -1,0 +1,45 @@
+# openrouter.yaml
+#
+# Custom NemoClaw network-policy preset: allows egress to the OpenRouter API so
+# OpenClaw's BUILT-IN openrouter provider can serve `openrouter/<author>/<slug>`
+# model refs (used as direct fallback routes behind the managed inference.local
+# primary — see runmod-models-live.sh).
+#
+# Endpoint: openrouter.ai only (chat completions live under /api/v1/**). The
+# request is issued by the gateway's node runtime from inside the proxy-only
+# netns, so this preset is what turns "NET:OPEN DENIED openrouter.ai" into 200s.
+#
+# Methods: chat completions are POST; GET is allowed for /api/v1/models and
+# key/limits introspection. Binaries: same pair as the firecrawl preset — the
+# outbound HTTPS is issued by openclaw's node runtime.
+#
+# Same shape as a built-in preset: a top-level `preset:` block + a
+# `network_policies:` block (copy the exact field shape from
+# nemoclaw-blueprint/policies/presets/telegram.yaml if your NemoClaw differs).
+
+preset:
+  name: openrouter
+  description: OpenRouter chat-completions API egress (direct model fallback)
+
+network_policies:
+  openrouter:
+    name: openrouter
+    endpoints:
+      - host: openrouter.ai
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        rules:
+          - allow:
+              method: POST
+              path: /**
+          - allow:
+              method: GET
+              path: /**
+    binaries:
+      # Paths on the FULL production image (finn-base:local): npm prefix is
+      # /usr/local, so openclaw is /usr/local/bin/openclaw and node is
+      # /usr/local/bin/node. (Re-verify with `command -v openclaw node` if the
+      # base image ever changes.)
+      - path: /usr/local/bin/openclaw
+      - path: /usr/local/bin/node
