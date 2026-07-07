@@ -15,7 +15,17 @@ GWPID=$(for p in $(pgrep -x openclaw 2>/dev/null); do
   pp=$(awk '{print $4}' "/proc/$p/stat" 2>/dev/null)
   if tr '\0' ' ' < "/proc/$pp/cmdline" 2>/dev/null | grep -q nemoclaw-start; then echo "$p"; break; fi
 done)
-[ -n "${GWPID:-}" ] || { echo "gw-cron: gateway process (openclaw child of nemoclaw-start) not found" >&2; exit 3; }
+# Fallback: after `nemoclaw recover` the gateway runs out-of-band (reparented to
+# pid 1, no nemoclaw-start). Accept an openclaw process that carries the gateway
+# token and is NOT the child of another openclaw (embedded agent runs are).
+if [ -z "${GWPID:-}" ]; then
+  GWPID=$(for p in $(pgrep -x openclaw 2>/dev/null); do
+    pp=$(awk '{print $4}' "/proc/$p/stat" 2>/dev/null)
+    case "$(cat "/proc/$pp/comm" 2>/dev/null)" in openclaw*) continue ;; esac
+    if tr '\0' '\n' < "/proc/$p/environ" 2>/dev/null | grep -q '^OPENCLAW_GATEWAY_TOKEN='; then echo "$p"; break; fi
+  done)
+fi
+[ -n "${GWPID:-}" ] || { echo "gw-cron: gateway process not found (neither nemoclaw-start child nor token-bearing out-of-band worker)" >&2; exit 3; }
 TOK=$(tr '\0' '\n' < "/proc/$GWPID/environ" 2>/dev/null | sed -n 's/^OPENCLAW_GATEWAY_TOKEN=//p' | head -1)
 exec nsenter -t "$GWPID" -n -- runuser -u sandbox -- env \
   HOME=/sandbox \

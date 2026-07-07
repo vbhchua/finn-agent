@@ -115,6 +115,14 @@ a rebuild.
   supervisor respawns it; (2) wedged state → `nemoclaw <name> rebuild` for a clean
   supervisor-managed boot; (3) `recover` is a last resort — it relaunches out-of-band, leaves a
   stale pid marker (§3), and does not restore the supervisor loop.
+- ⚠️ **On a custom-image onboard, read `rebuild`'s Target line before confirming.** A plain
+  `nemoclaw rebuild` targets the *stock* base — on this sandbox that is a silent OpenClaw
+  **downgrade** (2026.6.10 → 2026.5.27) that would drop the vendored patches. If the Target
+  doesn't match the running version, abort and rebuild via the custom Dockerfile path instead.
+- **After `recover`, tooling that finds the gateway by its `nemoclaw-start` parent breaks** —
+  the worker is reparented to pid 1. `radar/gw-cron.sh` now falls back to the token-bearing
+  out-of-band worker; also refresh `/tmp/nemoclaw-gateway.pid` with the live worker pid or the
+  container's healthcheck keeps reporting unhealthy (§3).
 - **Recovery after a wipe is a runbook, not archaeology:** secrets live in a gitignored `.env`,
   and every setup script is idempotent — re-run `channels add` → the runmods → the setup script,
   then verify (MCP list, cron list, one live search). Design for the wipe on day one.
@@ -189,6 +197,15 @@ diagnostics assume the Linux container layout:
 - Shared-endpoint inference flakiness (`LLM idle timeout`, worker limits) surfaces as *"agent
   run failed before producing a reply"* — **isolate with a no-tool prompt before chasing a
   config bug.** Wiring bugs are deterministic; capacity bugs are not.
+- **A host-process gateway that nothing supervises dies with the first reboot** — and the
+  sandbox supervisor's crash loop *looks* like a container bug while the real failure is one
+  layer up. Run it under the OS service manager (`tools/install-gateway-launchagent.sh`:
+  launchd LaunchAgent, RunAtLoad + KeepAlive, env-var config reproduced exactly). Takeover
+  gotcha: the outgoing gateway `docker stop`s its sandboxes, and restart policy
+  `unless-stopped` never revives an explicitly-stopped container — the new gateway then loops
+  on *"Sandbox failed to become ready (ContainerExited)"* until someone runs `docker start`
+  (the installer does). Note the service manager keeps the *process* alive, not the
+  *machine* — a lid-closed sleeping laptop still pauses every cron.
 
 ## 10. Writing a zero-dep MCP server (craft notes)
 
