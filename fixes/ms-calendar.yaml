@@ -27,7 +27,7 @@
 #
 # Same shape as fixes/firecrawl.yaml + fixes/exa.yaml: a top-level `preset:`
 # block + a `network_policies:` block. Activated BY NAME after copying into the
-# blueprint presets dir (runmod-finn-live.sh does this) — do NOT also use
+# blueprint presets dir (setup-finn.sh's calendar layer does this) — do NOT also use
 # `policy-add --from-file` or it collides (see docs/LEARNINGS.md §6).
 
 preset:

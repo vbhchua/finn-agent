@@ -1,262 +1,399 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# setup-finn.sh  —  minimal one-shot setup for the "finn" research agent (NemoClaw >= v0.0.67)
+# setup-finn.sh — ONE idempotent, .env-driven configurator for the finn sandbox.
 #
-# OPENCLAW 2026.6.x NOTE: on OpenClaw <= 2026.5.x firecrawl/exa shipped BUNDLED
-# (enable-only). OpenClaw 2026.6.x UN-BUNDLED them — firecrawl is now an
-# install-from-catalog plugin (step 3 installs the version-matched plugin, or
-# falls back to baking it at build). Reaching 2026.6.10 also requires NemoClaw
-# v0.0.68 + a 1-line chat-send patch tolerance (see PROGRESS.md 2026-06-26).
+# Folds the former runmod-*.sh add-ons (models · calendar · notion · radar) into a
+# single pass. Everything is driven by .env (template: .env.sample); each layer is
+# applied only if its env is present, and every layer is safe to re-run after a
+# rebuild/onboard. Run it after the sandbox is onboarded:
 #
-# WHAT CHANGED (the whole point of this rewrite). On nemoclaw v0.0.55 this took a
-# custom production base image (finn-base:local) + a baked Firecrawl plugin + a
-# ~9-step script. v0.0.67 absorbed almost all of that into the stock onboard:
+#     nemoclaw onboard --from ./Dockerfile.finn-2026.6.10 --name finn   # (see SETUP.md; base build first)
+#     ./setup-finn.sh                                                   # configures everything from .env
 #
-#   * The stock base now ships `nemoclaw-start` — `nemoclaw onboard` alone gives a
-#     working, authenticating gateway. NO custom Dockerfile, NO finn-base build.
-#   * Web SEARCH works out of the box: provider=brave, BRAVE_API_KEY auto-injected
-#     by onboard. Verified end-to-end (web_search returns real results), zero config.
-#   * The old manual fixes are now defaults: proxy.loopbackMode=gateway-only,
-#     gateway.mode=local, tools.toolSearch=false (NemoClaw applies the last one for
-#     Nemotron via a model-specific manifest), and tools.codeMode is off by default.
-#   * firecrawl + exa shipped as BUNDLED stock extensions on <= 2026.5.x (just
-#     disabled). ON 2026.6.x THEY ARE UN-BUNDLED — firecrawl must be installed
-#     (version-matched plugin, step 3); the rest (key + provider + policy +
-#     /etc/hosts) is unchanged.
+# The script auto-sources ./.env if present, so a bare `./setup-finn.sh` works.
 #
-# So this script does only what's genuinely left:
-#   1. ensure the sandbox exists (stock onboard — search works immediately)
-#   2. Telegram channel (first-class `channels add`, token baked at rebuild)
-#   3. full-page web FETCH via Firecrawl (Victor's choice; brave stays the SEARCH
-#      provider): on 2026.6.x install the version-matched plugin (or bake at build),
-#      then enable + key + policy + /etc/hosts. Skipped if FIRECRAWL_API_KEY unset.
-#   4. health + functional verification
+# Layers (order matters — Telegram REBUILDS the image, which wipes runtime config,
+# so it runs before every runtime layer; the single gateway restart at the end loads
+# the model + MCP runtime + fetch provider; radar registers crons against the live gateway):
+#   1. onboard (stock) if the sandbox is missing        (SKIP_ONBOARD=1 to require it exists)
+#   2. Telegram channel                                  TELEGRAM_BOT_TOKEN
+#   3. Brave web SEARCH (key + egress)                   BRAVE_API_KEY
+#   4. Firecrawl full-page FETCH                          FIRECRAWL_API_KEY
+#   5. Inference model (compatible-endpoint primary + optional OpenRouter fallback)
+#                                                         INFERENCE_MODEL_ID / OPENROUTER_API_KEY
+#   6. Outlook CALENDAR MCP                               MS_CALENDAR_CLIENT_ID + MS_CALENDAR_REFRESH_TOKEN
+#   7. Notion MCP                                         NOTION_TOKEN
+#   8. Proactive radar crons (conf-radar/topic-trends/weekly-digest)   NOTION_TOKEN
 #
-# Calendar (Outlook/live.com) is a separate optional add-on: ./runmod-finn-live.sh
-#
-# Usage:
-#   export BRAVE_API_KEY="BSA..."         # search key — ensures key + egress (re-onboard-safe)
-#   export FIRECRAWL_API_KEY="fc-..."     # optional — omit for search-only
-#   export TELEGRAM_BOT_TOKEN="..."       # optional — omit to skip the bot
-#   ./setup-finn.sh
-#
-# Env knobs: SANDBOX (default finn), SEARCH_PROVIDER (default brave),
-#            SKIP_ONBOARD=1 (don't create the sandbox if missing).
+# Env knobs: SANDBOX (default finn), SEARCH_PROVIDER (brave), SKIP_ONBOARD=1,
+#   NOTION_WRITE=1, MS_CALENDAR_WRITE=1, DRYRUN=1 (run conf-radar once), TELEGRAM_CHAT_ID,
+#   ONLY="models notion" (run just these layers), SKIP="radar" (skip these layers).
+
+HERE="$(cd "$(dirname "$0")" && pwd)"
+
+# ---- All config lives in .env (auto-source if present; already-exported vars win via set -a order) ----
+if [ -f "$HERE/.env" ]; then set -a; . "$HERE/.env"; set +a; fi
 
 SANDBOX="${SANDBOX:-finn}"
 SEARCH_PROVIDER="${SEARCH_PROVIDER:-brave}"
-HERE="$(cd "$(dirname "$0")" && pwd)"
-PRESETS_DIR="${PRESETS_DIR:-$(npm root -g 2>/dev/null)/nemoclaw/nemoclaw-blueprint/policies/presets}"
 
-# --- 0. NemoClaw version preflight -------------------------------------------
-# The golden path is built + verified against NemoClaw v0.0.68 EXACTLY
-# (github.com/NVIDIA/NemoClaw/tags). Older versions lack OpenClaw-2026.6.x patch
-# support (hard fail); newer ones are untested and may cover OpenClaw >= 2026.6.9
-# upstream — in which case drop patches/nemoclaw-2026.6.x-chat-send-runid.patch
-# (warn + continue). Bypass entirely with NEMOCLAW_VERSION_SKIP_CHECK=1.
+# Inference (generalized from the old KIMI_* knobs so ANY OpenAI-compatible endpoint works):
+INFERENCE_MODEL_ID="${INFERENCE_MODEL_ID:-kimi-k2.6}"           # sandbox primary = inference/$INFERENCE_MODEL_ID
+INFERENCE_ENDPOINT_URL="${INFERENCE_ENDPOINT_URL:-https://api.moonshot.ai/v1}"  # host-side, registered at onboard (informational here)
+INFERENCE_CONTEXT_WINDOW="${INFERENCE_CONTEXT_WINDOW:-262144}"
+INFERENCE_MAX_TOKENS="${INFERENCE_MAX_TOKENS:-8192}"
+OPENROUTER_MODEL="${OPENROUTER_MODEL:-openrouter/moonshotai/kimi-k2.6}"
+
+NOTION_VERSION="${NOTION_VERSION:-2022-06-28}"
+MS_CALENDAR_TENANT="${MS_CALENDAR_TENANT:-consumers}"
+MS_CALENDAR_TZ="${MS_CALENDAR_TZ:-UTC}"
+TZ_CRON="${TZ_CRON:-Asia/Singapore}"
+JOB_TIMEOUT="${JOB_TIMEOUT:-900}"
+SBX_RADAR="/sandbox/.cache/radar"
+case "${NOTION_WRITE:-0}"      in 1|true|yes|on|TRUE|YES|ON) NOTION_WRITE_ON=1 ;; *) NOTION_WRITE_ON=0 ;; esac
+case "${MS_CALENDAR_WRITE:-0}" in 1|true|yes|on|TRUE|YES|ON) MSCAL_WRITE_ON=1 ;; *) MSCAL_WRITE_ON=0 ;; esac
+
+# ONLY / SKIP layer selection (space-separated layer names).
+want() {  # $1 = layer name -> true if it should run
+  local l="$1"
+  if [ -n "${ONLY:-}" ]; then case " $ONLY " in *" $l "*) : ;; *) return 1 ;; esac; fi
+  if [ -n "${SKIP:-}" ]; then case " $SKIP " in *" $l "*) return 1 ;; esac; fi
+  return 0
+}
+
+# ---- 0. NemoClaw version preflight (built + verified against v0.0.68 exactly) ----
 NEMOCLAW_VERSION_EXPECTED="v0.0.68"
-# true if $1 < $2 (dotted numeric versions, no leading v)
 verlt() { [ "$1" != "$2" ] && [ "$(printf '%s\n%s\n' "$1" "$2" | sort -t. -k1,1n -k2,2n -k3,3n | head -1)" = "$1" ]; }
 if [ -z "${NEMOCLAW_VERSION_SKIP_CHECK:-}" ]; then
   nv="$(nemoclaw --version 2>/dev/null | head -1 | grep -o 'v[0-9][0-9.]*' || true)"
   if [ -z "$nv" ]; then
-    echo "ERROR: cannot determine the nemoclaw version ('nemoclaw --version' gave nothing); expected $NEMOCLAW_VERSION_EXPECTED." >&2
-    echo "       Install/pin it from github.com/NVIDIA/NemoClaw/tags, or re-run with NEMOCLAW_VERSION_SKIP_CHECK=1." >&2
-    exit 1
-  elif [ "$nv" = "$NEMOCLAW_VERSION_EXPECTED" ]; then
-    echo "==> NemoClaw:       $nv (the verified combination)"
+    echo "ERROR: cannot determine the nemoclaw version; expected $NEMOCLAW_VERSION_EXPECTED (or NEMOCLAW_VERSION_SKIP_CHECK=1)." >&2; exit 1
+  elif [ "$nv" = "$NEMOCLAW_VERSION_EXPECTED" ]; then echo "==> NemoClaw:  $nv (verified)"
   elif verlt "${nv#v}" "${NEMOCLAW_VERSION_EXPECTED#v}"; then
-    echo "ERROR: nemoclaw $nv is OLDER than $NEMOCLAW_VERSION_EXPECTED — no OpenClaw 2026.6.x patch support; aborting." >&2
-    echo "       Upgrade (github.com/NVIDIA/NemoClaw/tags), or force with NEMOCLAW_VERSION_SKIP_CHECK=1." >&2
-    exit 1
-  else
-    echo "==> NemoClaw:       $nv — NEWER than the verified $NEMOCLAW_VERSION_EXPECTED; untested, continuing." >&2
-    echo "    If upstream now patches OpenClaw >= 2026.6.9, drop patches/nemoclaw-2026.6.x-chat-send-runid.patch." >&2
-  fi
+    echo "ERROR: nemoclaw $nv is OLDER than $NEMOCLAW_VERSION_EXPECTED — no OpenClaw 2026.6.x patch support; aborting." >&2; exit 1
+  else echo "==> NemoClaw:  $nv — newer than the verified $NEMOCLAW_VERSION_EXPECTED; untested, continuing." >&2; fi
 fi
 
-echo "==> Sandbox:        $SANDBOX"
-echo "==> Search:         $SEARCH_PROVIDER ($([ -n "${BRAVE_API_KEY:-}" ] && echo 'key + egress ensured below (step 2b)' || echo 'relying on onboard key injection — may be unkeyed after a re-onboard'))"
-echo "==> Fetch:          $([ -n "${FIRECRAWL_API_KEY:-}" ] && echo 'firecrawl (bundled <=2026.5.x / installed plugin on 2026.6.x)' || echo 'search-only (set FIRECRAWL_API_KEY to add full-page fetch)')"
+echo "==> Sandbox:   $SANDBOX"
+echo "==> Layers:    ${ONLY:+ONLY='$ONLY' }${SKIP:+SKIP='$SKIP' }(each also skipped if its env is unset)"
 
-# Run a command inside the sandbox as the sandbox user with HOME set.
+# ============================ shared helpers ============================
+# nemoclaw exec as the sandbox user (config gets/sets go through this).
 oc() { nemoclaw "$SANDBOX" exec -- bash -c "HOME=/sandbox $*" 2>/dev/null; }
 
-# --- 1. Ensure the sandbox exists (stock onboard) ---------------------------
-# A plain onboard gives a working gateway + brave web search with nothing custom.
-if nemoclaw "$SANDBOX" status >/dev/null 2>&1; then
-  echo "==> $SANDBOX already exists — skipping onboard (idempotent)."
-elif [ "${SKIP_ONBOARD:-0}" = 1 ]; then
-  echo "ERROR: $SANDBOX does not exist and SKIP_ONBOARD=1. Run 'nemoclaw onboard --name $SANDBOX' first." >&2
-  exit 1
-else
-  # Clear a lingering custom `brave` provider PROFILE so onboard's provider-profile
-  # import doesn't collide ("custom provider profile 'brave' already exists →
-  # provider profile import failed"). `import` has no --force, so a re-onboard after
-  # a prior import always trips on it. This deletes only the custom TEMPLATE; any
-  # existing provider INSTANCE (e.g. finn-brave-search, which holds BRAVE_API_KEY)
-  # is a separate object and is unaffected. Harmless if no such profile exists.
-  openshell provider profile delete brave >/dev/null 2>&1 || true
-  echo "==> Onboarding $SANDBOX (stock image — gateway + brave search, no custom Dockerfile) ..."
-  nemoclaw onboard --name "$SANDBOX"
-fi
+CONTAINER=""
+find_container() {  # re-resolve — the name/UUID changes on every rebuild
+  CONTAINER="$(docker ps --filter name=openshell-"$SANDBOX" --format '{{.Names}}' | head -1)"
+  [ -n "$CONTAINER" ] || { echo "ERROR: running sandbox container not found (is $SANDBOX onboarded/up?)." >&2; return 1; }
+}
+dx0()    { docker exec -u 0 "$CONTAINER" "$@"; }
+dx998()  { docker exec -u 998 -e HOME=/sandbox "$CONTAINER" "$@"; }
+dx998i() { docker exec -i -u 998 -e HOME=/sandbox "$CONTAINER" "$@"; }
+gw()     { dx0 "$SBX_RADAR/gw-cron.sh" "$@"; }
 
-# --- 2. Telegram channel (first-class; token baked at rebuild) --------------
-# v0.0.67 replaces the old in-sandbox `openclaw config set channels.telegram.*`
-# hack: `nemoclaw <name> channels add telegram` stores the token host-side and
-# rebuilds so it's baked into the image (survives restarts). It is INTERACTIVE —
-# it prompts for the bot token and confirms the rebuild — so run this script from
-# a terminal for a fresh sandbox. Idempotent: skipped if telegram is already on.
-if [ "$(oc 'openclaw config get channels.telegram.enabled' | tail -1)" = "true" ]; then
-  echo "==> Telegram already enabled on $SANDBOX — leaving as-is."
-elif [ -t 0 ]; then
-  echo "==> Adding Telegram channel (interactive: prompts for token, then REBUILDS) ..."
-  nemoclaw "$SANDBOX" channels add telegram \
-    || echo "    NOTE: 'channels add telegram' did not complete — re-run it by hand."
-  echo "    After restart: DM the bot, then  nemoclaw $SANDBOX exec -- openclaw pairing list telegram  /  approve telegram <CODE>"
-else
-  echo "==> Skipping Telegram: not a TTY. Run by hand:  nemoclaw $SANDBOX channels add telegram"
-fi
+# npm root -g is brittle under nvm; follow the nemoclaw launcher to the blueprint as a fallback.
+resolve_presets_dir() {
+  local d launcher real execpath
+  d="$(npm root -g 2>/dev/null)/nemoclaw/nemoclaw-blueprint/policies/presets"
+  [ -d "$d" ] && { echo "$d"; return; }
+  launcher="$(command -v nemoclaw 2>/dev/null || true)"; [ -n "$launcher" ] || { echo ""; return; }
+  real="$(readlink -f "$launcher" 2>/dev/null || true)"
+  case "$real" in *nemoclaw.js) : ;; *)
+    execpath="$(grep -oE '"[^"]*/bin/nemoclaw"' "$real" 2>/dev/null | tr -d '"' | head -1)"
+    [ -n "$execpath" ] && real="$(readlink -f "$execpath" 2>/dev/null || true)" ;;
+  esac
+  d="$(dirname "$real")/../nemoclaw-blueprint/policies/presets"
+  [ -d "$d" ] && (cd "$d" && pwd) || echo ""
+}
+PRESETS_DIR="${PRESETS_DIR:-$(resolve_presets_dir)}"
 
-# --- 2b. Brave web SEARCH: ensure the key + egress (idempotent) -------------
-# Step 1 calls brave "auto-injected by onboard" — but that only holds for a FRESH
-# onboard with BRAVE_API_KEY in the env. A re-onboard / rebuild (or an onboard run
-# WITHOUT the key) leaves brave with an OpenShell PLACEHOLDER apiKey
-# (__OPENCLAW_REDACTED__) AND the `brave` egress preset INACTIVE → web_search fails
-# with "fetch failed" (root cause confirmed 2026-06-28: a bare re-onboard wiped the
-# key + dropped the preset; search only came back after the two fixes below). So make
-# both explicit and idempotent here — cheap to re-run, closes the gap.
-if [ -n "${BRAVE_API_KEY:-}" ]; then
-  # 2b-i. Open egress to the Brave Search API. `brave` is a BUILT-IN preset, so add
-  #       it BY NAME (no yaml to copy). Applies live — no rebuild (policy versions bump).
-  echo "==> Activating brave search egress (api.search.brave.com) ..."
-  nemoclaw "$SANDBOX" policy-add brave --yes \
-    || echo "    (policy-add brave non-zero — may already be applied; check: nemoclaw $SANDBOX policy-list)"
+# Register a bundled/vendored egress preset by NAME (copy the yaml into the blueprint if we ship one;
+# activate by name — --from-file collides once registered, LEARNINGS §6).
+apply_policy() {  # $1 = preset name
+  local p="$1"
+  if [ -f "$HERE/fixes/$p.yaml" ] && [ -d "$PRESETS_DIR" ]; then cp "$HERE/fixes/$p.yaml" "$PRESETS_DIR/"; fi
+  echo "==> policy-add $p ..."
+  nemoclaw "$SANDBOX" policy-add "$p" --yes \
+    || echo "    (policy-add $p non-zero — may already be applied; nemoclaw $SANDBOX policy-list)"
+}
 
-  # 2b-ii. Inject the key into plugin config (generic provider creds are NOT
-  #        auto-injected; the plugin reads config.webSearch.apiKey — env is fallback).
-  #        openclaw stores it redacted (reads back __OPENCLAW_REDACTED__, so a `config
-  #        get` check is useless — verify via the raw json or a live web_search). Kept
-  #        out of the repo/image; re-applied here every run (a rebuild wipes it).
-  echo "==> Injecting Brave search key + pinning search=brave ..."
-  oc "openclaw config set tools.web.search.provider brave" >/dev/null || true
+# The gateway spawns MCP children with a SCRUBBED env in a proxy-only netns (LEARNINGS §1).
+# Recover the gateway's own proxy + CA so `openclaw mcp set` can bake them into the child env.
+PROXY_URL="" CA_PATH="" NOPROXY=""
+derive_proxy_ca() {
+  local gwenv
+  gwenv="$(dx0 sh -c '
+    for p in $(pgrep -x openclaw 2>/dev/null); do
+      if tr "\0" "\n" < /proc/$p/environ 2>/dev/null | grep -q "^NODE_EXTRA_CA_CERTS="; then
+        tr "\0" "\n" < /proc/$p/environ 2>/dev/null; break; fi
+    done' 2>/dev/null)"
+  PROXY_URL="$(printf '%s\n' "$gwenv" | sed -n 's/^HTTPS_PROXY=//p' | head -1)";       PROXY_URL="${PROXY_URL:-http://10.200.0.1:3128}"
+  CA_PATH="$(printf '%s\n' "$gwenv"  | sed -n 's/^NODE_EXTRA_CA_CERTS=//p' | head -1)"; CA_PATH="${CA_PATH:-/etc/openshell-tls/openshell-ca.pem}"
+  NOPROXY="$(printf '%s\n' "$gwenv"  | sed -n 's/^NO_PROXY=//p' | head -1)";            NOPROXY="${NOPROXY:-localhost,127.0.0.1,::1,10.200.0.1}"
+}
+
+# Install a zero-dep MCP server into the sandbox + register it (with proxy/CA egress env).
+install_mcp() {  # $1=name  $2=src(.mjs)  $3=dst
+  local name="$1" src="$2" dst="$3" mcp_json
+  [ -f "$src" ] || { echo "ERROR: MCP server $src not found." >&2; return 1; }
+  dx998 mkdir -p "$(dirname "$dst")"
+  docker cp "$src" "$CONTAINER:$dst"
+  dx0 sh -c "chown 998:998 '$dst' && chmod 644 '$dst'"
+  mcp_json="$(MCP_DST="$dst" PROXY_URL="$PROXY_URL" CA_PATH="$CA_PATH" NOPROXY="$NOPROXY" python3 - <<'PY'
+import json, os
+print(json.dumps({"command":"node","args":[os.environ["MCP_DST"]],"env":{
+  "HTTPS_PROXY":os.environ["PROXY_URL"],"HTTP_PROXY":os.environ["PROXY_URL"],
+  "NO_PROXY":os.environ["NOPROXY"],"NODE_USE_ENV_PROXY":"1","NODE_EXTRA_CA_CERTS":os.environ["CA_PATH"]}}))
+PY
+)"
+  dx998 openclaw mcp set "$name" "$mcp_json" \
+    && echo "    Registered MCP '$name'." \
+    || echo "    WARNING: 'openclaw mcp set $name' failed — nemoclaw $SANDBOX exec -- openclaw mcp list"
+}
+
+# Full gateway restart = the ONLY reliable way to load model config + rebuild the MCP runtime on this
+# OpenClaw (no `mcp reload`; `recover` only hot-reloads). TERM the gateway worker; the nemoclaw-start
+# supervisor relaunches a fresh gateway. Health is LOG-authoritative (LEARNINGS §2/§3). NEVER docker restart (§5).
+restart_gateway() {
+  echo "==> Restarting the gateway (load model + rebuild MCP runtime) ..."
+  local before ok=""
+  before="$(dx0 sh -c 'wc -l < /tmp/gateway.log 2>/dev/null' | tr -d '[:space:]')"
+  local gwpid
+  gwpid="$(dx0 sh -c '
+    for p in $(pgrep -x openclaw 2>/dev/null); do
+      pp=$(awk "{print \$4}" /proc/$p/stat 2>/dev/null)
+      tr "\0" " " < /proc/$pp/cmdline 2>/dev/null | grep -q nemoclaw-start && { echo $p; break; }
+    done' 2>/dev/null | head -1)"
+  if [ -n "$gwpid" ]; then
+    dx0 sh -c "kill -TERM $gwpid" && echo "    TERM -> gateway worker (pid $gwpid); supervisor relaunching ..."
+  else
+    echo "    gateway worker not found by name+parent; falling back to nemoclaw recover."
+    nemoclaw "$SANDBOX" recover >/dev/null 2>&1 || true
+  fi
+  for _ in 1 2 3 4 5 6 7 8; do
+    if dx0 sh -c "tail -n +$(( ${before:-0} + 1 )) /tmp/gateway.log 2>/dev/null" | grep -qiE "http server listening|\[gateway\] ready"; then ok=1; break; fi
+    sleep 5
+  done
+  [ -n "$ok" ] && echo "    Gateway back up (fresh 'listening'/'ready')." \
+              || echo "    NOTE: no fresh ready line yet; re-check /tmp/gateway.log."
+}
+
+# Functional check for an MCP server via a direct stdio diagnostics call (main netns — proves
+# egress/auth reachability, NOT the gateway-netns path; the Telegram test is the final word).
+mcp_diagnostics() {  # $1 = server dst
+  printf '%s\n' \
+    '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"setup","version":"0"}}}' \
+    '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"diagnostics","arguments":{}}}' \
+    | dx998i node "$1" 2>/dev/null \
+    | python3 -c "import sys,json
+for line in sys.stdin:
+    line=line.strip()
+    if not line: continue
+    try:
+        m=json.loads(line)
+        if m.get('id')==2: print(m['result']['content'][0]['text'])
+    except Exception: pass" | sed 's/^/      /'
+}
+
+# ============================ layers ============================
+
+layer_onboard() {
+  if nemoclaw "$SANDBOX" status >/dev/null 2>&1; then
+    echo "==> $SANDBOX exists — skipping onboard."
+  elif [ "${SKIP_ONBOARD:-0}" = 1 ]; then
+    echo "ERROR: $SANDBOX missing and SKIP_ONBOARD=1. Run 'nemoclaw onboard --from ./Dockerfile.finn-2026.6.10 --name $SANDBOX' (base build first — SETUP.md)." >&2; exit 1
+  else
+    # Clear a lingering custom brave provider PROFILE so onboard's import doesn't collide (no --force).
+    openshell provider profile delete brave >/dev/null 2>&1 || true
+    echo "==> Onboarding $SANDBOX (stock image — gateway + brave search) ..."
+    nemoclaw onboard --name "$SANDBOX"
+  fi
+}
+
+layer_telegram() {  # rebuilds the image (bakes the token) — MUST precede runtime layers
+  if [ -z "${TELEGRAM_BOT_TOKEN:-}" ]; then echo "==> Telegram: TELEGRAM_BOT_TOKEN unset — skipping."; return; fi
+  if [ "$(oc 'openclaw config get channels.telegram.enabled' | tail -1)" = "true" ]; then
+    echo "==> Telegram already enabled — leaving as-is."; return
+  fi
+  echo "==> Adding Telegram channel (REBUILDS the image to bake the token) ..."
+  # Non-interactive: feed the token + confirm the rebuild. (Interactive fallback if no token piped.)
+  printf '%s\ny\n' "$TELEGRAM_BOT_TOKEN" | nemoclaw "$SANDBOX" channels add telegram \
+    || echo "    NOTE: 'channels add telegram' did not complete — re-run by hand."
+  echo "    After it rebuilds: DM the bot, then  nemoclaw $SANDBOX exec -- openclaw pairing list telegram  /  approve telegram <CODE>"
+}
+
+layer_search() {  # Brave key + egress (onboard only injects on a FRESH onboard with the key present)
+  if [ -z "${BRAVE_API_KEY:-}" ]; then echo "==> Search: BRAVE_API_KEY unset — relying on onboard injection (may be unkeyed after a re-onboard)."; return; fi
+  apply_policy brave
+  echo "==> Injecting Brave key + pinning search=$SEARCH_PROVIDER ..."
+  oc "openclaw config set tools.web.search.provider $SEARCH_PROVIDER" >/dev/null || true
   oc "openclaw config set plugins.entries.brave.config.webSearch.apiKey '$BRAVE_API_KEY'" >/dev/null \
-    && echo "    Set webSearch.apiKey (brave)." \
-    || echo "    WARNING: failed to set brave apiKey — set it manually."
-else
-  echo "==> BRAVE_API_KEY not set — leaving brave to onboard's injection (web_search may be"
-  echo "    unkeyed after a re-onboard; export BRAVE_API_KEY and re-run to guarantee it)."
-fi
+    && echo "    Set webSearch.apiKey (brave)." || echo "    WARNING: failed to set brave apiKey."
+}
 
-# --- 3. Full-page web FETCH via the Firecrawl plugin ------------------------
-# SEARCH stays on brave (OOTB). We only add FETCH so the agent can read whole
-# pages (not just brave snippets) without allow-listing every site — Firecrawl
-# scrapes server-side through its single endpoint (api.firecrawl.dev).
-#
-# On OpenClaw <= 2026.5.x firecrawl was BUNDLED (just enable it). On 2026.6.x it
-# is UN-BUNDLED, so step 3b installs the version-matched plugin (or you bake it at
-# build). Then: enable + point fetch at it + supply the key + open egress +
-# /etc/hosts. (tools.codeMode is off by default, so the old isolated-child
-# EAI_AGAIN problem doesn't apply — no need to disable it.)
-if [ -n "${FIRECRAWL_API_KEY:-}" ]; then
-  # 3a. Register + activate the firecrawl egress policy (api.firecrawl.dev only).
-  #     Copy into the blueprint, then activate BY NAME (--from-file collides once
-  #     registered — see docs/LEARNINGS.md �6).
-  if [ -d "$PRESETS_DIR" ]; then
-    cp "$HERE/fixes/firecrawl.yaml" "$PRESETS_DIR/"
-    echo "==> Registered fixes/firecrawl.yaml in the blueprint."
-  else
-    echo "WARNING: presets dir not found ($PRESETS_DIR) — set PRESETS_DIR; trying policy-add anyway." >&2
-  fi
-  echo "==> Applying firecrawl egress policy ..."
-  nemoclaw "$SANDBOX" policy-add firecrawl --yes \
-    || echo "    (policy-add non-zero — may already be applied; check: nemoclaw $SANDBOX policy-list)"
-
-  # 3b. Ensure the firecrawl PLUGIN exists, then enable it + point FETCH at it.
-  #     VERSION SPLIT (verified 2026-06-26): OpenClaw <= 2026.5.x ships firecrawl
-  #     as a BUNDLED extension (just enable it). OpenClaw 2026.6.x UN-BUNDLED it
-  #     (now an install-from-catalog plugin, like brave) — so on 2026.6.x we must
-  #     `openclaw plugins install` the VERSION-MATCHED plugin first (npm: spec, same
-  #     as the Dockerfile's brave install; `clawhub:` was an old-OpenClaw artifact).
-  #     A runtime install needs npm-registry egress, which the sandbox blocks by
-  #     default — so the ROBUST path is to BAKE it into the onboard Dockerfile
-  #     (nemoclaw onboard --from); this block falls back to that instruction.
-  OCV="$(oc 'openclaw --version' | awk '{print $2}' | tr -d '\r')"
-  if [ -n "$OCV" ] && [ "$(printf '%s\n%s\n' "2026.6.0" "$OCV" | sort -V | head -n1)" = "2026.6.0" ]; then
+layer_fetch() {  # Firecrawl full-page fetch (search stays on brave)
+  if [ -z "${FIRECRAWL_API_KEY:-}" ]; then echo "==> Fetch: FIRECRAWL_API_KEY unset — search-only."; return; fi
+  apply_policy firecrawl
+  # 2026.6.x un-bundled firecrawl → install the version-matched plugin (or it's baked at build).
+  local ocv
+  ocv="$(oc 'openclaw --version' | awk '{print $2}' | tr -d '\r')"
+  if [ -n "$ocv" ] && [ "$(printf '%s\n%s\n' "2026.6.0" "$ocv" | sort -V | head -n1)" = "2026.6.0" ]; then
     if oc 'openclaw plugins list' | grep -qiE 'firecrawl'; then
-      echo "==> firecrawl plugin already installed/baked (OpenClaw $OCV) — skipping install."
+      echo "==> firecrawl plugin already installed/baked (OpenClaw $ocv)."
     else
-      echo "==> OpenClaw $OCV un-bundles firecrawl — installing @openclaw/firecrawl-plugin@$OCV ..."
-      oc "openclaw plugins install 'npm:@openclaw/firecrawl-plugin@$OCV' --pin" >/dev/null 2>&1 \
-        && echo "    Installed @openclaw/firecrawl-plugin@$OCV. (A freshly-installed plugin needs a" \
-        && echo "    FULL gateway restart to load — 'recover' alone hot-reloads only; if web_fetch still" \
-        && echo "    reports no provider, do the runmod-style restart: kill the openclaw child of nemoclaw-start.)" \
-        || { echo "    WARNING: runtime plugin install failed (sandbox likely blocks npm-registry egress)."; \
-             echo "             ROBUST FIX — bake it into your onboard Dockerfile (nemoclaw onboard --from):"; \
-             echo "               RUN HOME=/sandbox openclaw plugins install 'npm:@openclaw/firecrawl-plugin@$OCV' --pin"; \
-             echo "             (Build-time egress is direct, so the install succeeds and the agent's runtime"; \
-             echo "              egress stays locked to api.firecrawl.dev — same model as the baked brave plugin.)"; }
+      echo "==> Installing @openclaw/firecrawl-plugin@$ocv ..."
+      oc "openclaw plugins install 'npm:@openclaw/firecrawl-plugin@$ocv' --pin" >/dev/null 2>&1 \
+        && echo "    Installed (needs the gateway restart to load)." \
+        || echo "    WARNING: runtime install failed (sandbox blocks npm egress) — BAKE it in Dockerfile.finn-2026.6.10 (RUN openclaw plugins install ... --pin)."
     fi
-  else
-    echo "==> OpenClaw ${OCV:-<=2026.5.x} bundles firecrawl — enabling the bundled extension."
   fi
-
-  # 3c. Enable the plugin + set FETCH provider (leave SEARCH on brave) and inject
-  #     the key into the plugin config (generic provider creds are NOT auto-injected;
-  #     the plugin reads config.webFetch.apiKey — env is fallback). openclaw stores
-  #     it redacted (reads back __OPENCLAW_REDACTED__); kept out of the repo/image and
-  #     re-applied here on every run. Works whether firecrawl was bundled or installed.
   echo "==> Pointing web_fetch at firecrawl + injecting key ..."
   oc "openclaw config set plugins.entries.firecrawl.enabled true" >/dev/null || true
   oc "openclaw config set tools.web.fetch.provider firecrawl" >/dev/null || true
   oc "openclaw config set plugins.entries.firecrawl.config.webFetch.baseUrl https://api.firecrawl.dev" >/dev/null || true
-  oc "openclaw config set tools.web.search.provider $SEARCH_PROVIDER" >/dev/null || true   # keep search = brave
+  oc "openclaw config set tools.web.search.provider $SEARCH_PROVIDER" >/dev/null || true
   oc "openclaw config set plugins.entries.firecrawl.config.webFetch.apiKey '$FIRECRAWL_API_KEY'" >/dev/null \
-    && echo "    Set web_fetch=firecrawl + webFetch.apiKey (search stays $SEARCH_PROVIDER)." \
-    || echo "    WARNING: failed to set firecrawl apiKey — set it manually (see README)."
+    && echo "    Set web_fetch=firecrawl + key." || echo "    WARNING: failed to set firecrawl apiKey."
+  # /etc/hosts: the firecrawl SSRF precheck resolves via the LOCAL resolver — point it at any public IP.
+  local fc_ip
+  fc_ip="$( { dig +short api.firecrawl.dev A 2>/dev/null; } | grep -E '^[0-9]+\.' | head -1 )"; fc_ip="${fc_ip:-35.245.250.27}"
+  dx0 sh -c "grep -q 'api.firecrawl.dev' /etc/hosts || echo '$fc_ip api.firecrawl.dev' >> /etc/hosts" \
+    && echo "    /etc/hosts: $fc_ip api.firecrawl.dev" || echo "    WARNING: failed to add /etc/hosts alias."
+}
 
-  # 3d. /etc/hosts: api.firecrawl.dev -> a public IP. The firecrawl plugin runs an
-  #     SSRF dns.lookup precheck via the LOCAL resolver, which can't resolve any
-  #     external host here (real egress goes through the proxy). Any public IP makes
-  #     the "not private" check pass; the actual request still goes via the proxy.
-  #     A full rebuild regenerates /etc/hosts, so re-add after onboard/channels-add.
-  echo "==> Adding /etc/hosts alias for api.firecrawl.dev (SSRF-precheck fix) ..."
-  FC_IP="$( { dig +short api.firecrawl.dev A 2>/dev/null; } | grep -E '^[0-9]+\.' | head -1 )"
-  FC_IP="${FC_IP:-35.245.250.27}"
-  CID="$(docker ps --filter name=openshell-"$SANDBOX" --format '{{.Names}}' | head -1)"
-  if [ -n "$CID" ]; then
-    docker exec -u 0 "$CID" sh -c "grep -q 'api.firecrawl.dev' /etc/hosts || echo '$FC_IP api.firecrawl.dev' >> /etc/hosts" \
-      && echo "    Added '$FC_IP api.firecrawl.dev'." \
-      || echo "    WARNING: failed to add /etc/hosts alias."
+layer_models() {  # inference primary = compatible-endpoint model; optional OpenRouter fallback
+  echo "==> Model: primary=inference/$INFERENCE_MODEL_ID (endpoint $INFERENCE_ENDPOINT_URL, key gateway-side)"
+  [ -n "${OPENROUTER_API_KEY:-}" ] && apply_policy openrouter
+  docker exec -i -u 998 -e HOME=/sandbox \
+    -e MID="$INFERENCE_MODEL_ID" -e CTX="$INFERENCE_CONTEXT_WINDOW" -e MAX="$INFERENCE_MAX_TOKENS" \
+    -e OR_MODEL="$OPENROUTER_MODEL" -e OR_KEY="${OPENROUTER_API_KEY:-}" \
+    "$CONTAINER" python3 - <<'PY'
+import json, os, shutil
+p="/sandbox/.openclaw/openclaw.json"; mid=os.environ["MID"]; or_model=os.environ["OR_MODEL"]; or_key=os.environ.get("OR_KEY","")
+shutil.copy(p, p+".pre-models"); cfg=json.load(open(p))
+d=cfg["agents"]["defaults"]; d.setdefault("model",{})["primary"]=f"inference/{mid}"
+models=cfg["models"]["providers"]["inference"].setdefault("models",[])
+if not any(m.get("id")==mid for m in models):
+    models.append({"id":mid,"name":f"inference/{mid}","reasoning":False,"input":["text"],
+        "cost":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0},
+        "contextWindow":int(os.environ["CTX"]),"maxTokens":int(os.environ["MAX"])})
+if or_key:
+    cfg.setdefault("env",{})["OPENROUTER_API_KEY"]=or_key
+    fb=d["model"].setdefault("fallbacks",[]); (or_model in fb) or fb.append(or_model)
+    am=d.setdefault("models",{}); am.setdefault(f"inference/{mid}",{}); am.setdefault(or_model,{})
+    print(f"    primary=inference/{mid}  fallbacks={fb}")
+else:
+    print(f"    primary=inference/{mid}  (no OpenRouter fallback)")
+json.dump(cfg, open(p,"w"), indent=2)
+PY
+}
+
+layer_calendar() {  # Outlook/Graph MCP (personal MSA via a delegated refresh token)
+  local write="$MSCAL_WRITE_ON" scope
+  if [ "$write" = 1 ]; then scope="https://graph.microsoft.com/Calendars.ReadWrite offline_access User.Read"
+  else scope="https://graph.microsoft.com/Calendars.Read offline_access User.Read"; fi
+  scope="${MS_CALENDAR_SCOPE:-$scope}"
+  apply_policy ms-calendar
+  install_mcp ms-calendar "$HERE/mcp/ms-calendar-mcp.mjs" /sandbox/mcp/ms-calendar-mcp.mjs || return
+  if [ -n "${MS_CALENDAR_CLIENT_ID:-}" ] && [ -n "${MS_CALENDAR_REFRESH_TOKEN:-}" ]; then
+    docker exec -u 998 -e HOME=/sandbox -e CID="$MS_CALENDAR_CLIENT_ID" -e RT="$MS_CALENDAR_REFRESH_TOKEN" \
+      -e TEN="$MS_CALENDAR_TENANT" -e SC="$scope" -e TZ="$MS_CALENDAR_TZ" -e WR="$write" "$CONTAINER" sh -c '
+        umask 077; mkdir -p /sandbox/.config
+        { echo "MS_CALENDAR_CLIENT_ID=$CID"; echo "MS_CALENDAR_REFRESH_TOKEN=$RT"; echo "MS_CALENDAR_TENANT=$TEN";
+          echo "MS_CALENDAR_SCOPE=$SC"; echo "MS_CALENDAR_TZ=$TZ"; echo "MS_CALENDAR_WRITE=$WR"; } > /sandbox/.config/ms-calendar.env'
+    echo "    Calendar creds written (write=$write)."
   else
-    echo "    WARNING: sandbox container not found; add manually after it's up."
+    echo "    NOTE: MS_CALENDAR_CLIENT_ID/REFRESH_TOKEN unset — calendar wired but inactive (mint: node tools/ms-graph-login.mjs <CLIENT_ID>)."
   fi
-else
-  echo "==> Skipping Firecrawl fetch layer (FIRECRAWL_API_KEY not set) — search-only."
-fi
+}
 
-# --- 4. Restart + verify ----------------------------------------------------
-echo "==> Restarting the gateway to apply runtime config ..."
-nemoclaw "$SANDBOX" recover >/dev/null 2>&1 || true
+layer_notion() {  # Notion MCP (internal-integration token)
+  if [ -z "${NOTION_TOKEN:-}" ]; then echo "==> Notion: NOTION_TOKEN unset — skipping."; return; fi
+  apply_policy notion
+  install_mcp notion "$HERE/mcp/notion-mcp.mjs" /sandbox/mcp/notion-mcp.mjs || return
+  docker exec -u 998 -e HOME=/sandbox -e TOK="$NOTION_TOKEN" -e VER="$NOTION_VERSION" -e WR="$NOTION_WRITE_ON" "$CONTAINER" sh -c '
+    umask 077; mkdir -p /sandbox/.config
+    { echo "NOTION_TOKEN=$TOK"; echo "NOTION_VERSION=$VER"; echo "NOTION_WRITE=$WR"; } > /sandbox/.config/notion.env'
+  echo "    Notion creds written (write=$NOTION_WRITE_ON)."
+}
 
+layer_radar() {  # proactive cron loops — needs NOTION_TOKEN + the Notion MCP + a live gateway
+  if [ -z "${NOTION_TOKEN:-}" ]; then echo "==> Radar: NOTION_TOKEN unset — skipping."; return; fi
+  local f; for f in notion-bootstrap.mjs gw-cron.sh grant-cron-admin.py prompts/conf-radar.md prompts/topic-trends.md prompts/weekly-digest.md; do
+    [ -f "$HERE/radar/$f" ] || { echo "ERROR: radar/$f missing." >&2; return 1; }; done
+  echo "==> Radar: bootstrapping Notion DBs (host-side) ..."
+  local boot; boot="$(NOTION_TOKEN="$NOTION_TOKEN" node "$HERE/radar/notion-bootstrap.mjs")"; echo "    $boot"
+  get() { printf '%s' "$boot" | python3 -c "import sys,json;print(json.load(sys.stdin).get('$1',''))"; }
+  local EVENTS_DB SPEAKERS_DB TOPICS_DB TRENDS_DB
+  EVENTS_DB="$(get events_db)"; SPEAKERS_DB="$(get speakers_db)"; TOPICS_DB="$(get topics_db)"; TRENDS_DB="$(get trends_db)"
+  [ -n "$EVENTS_DB" ] && [ -n "$TOPICS_DB" ] && [ -n "$TRENDS_DB" ] || { echo "ERROR: bootstrap returned no DB ids." >&2; return 1; }
+  local CHAT_ID="${TELEGRAM_CHAT_ID:-}"
+  [ -n "$CHAT_ID" ] || CHAT_ID="$(dx0 sh -c "grep -oiE 'chat[_ ]?id[\"= :]+-?[0-9]{6,}' /tmp/gateway.log 2>/dev/null | grep -oE '\-?[0-9]{6,}' | tail -1" || true)"
+  [ -n "$CHAT_ID" ] && echo "==> Telegram chat id: $CHAT_ID" || echo "    WARNING: no chat id detected; DM finn once, re-run with TELEGRAM_CHAT_ID=<id>. Using last-channel fallback." >&2
+  dx998 mkdir -p "$SBX_RADAR"
+  docker cp "$HERE/radar/gw-cron.sh"          "$CONTAINER:$SBX_RADAR/gw-cron.sh"
+  docker cp "$HERE/radar/grant-cron-admin.py" "$CONTAINER:$SBX_RADAR/grant-cron-admin.py"
+  dx0 sh -c "chown 998:998 $SBX_RADAR/gw-cron.sh $SBX_RADAR/grant-cron-admin.py && chmod 755 $SBX_RADAR/gw-cron.sh"
+  echo "==> Ensuring the CLI device has operator.admin (for cron add) ..."
+  local grant; grant="$(dx998 python3 "$SBX_RADAR/grant-cron-admin.py" | tail -1)"; echo "    grant: $grant"
+  [ "$grant" = "CHANGED" ] && restart_gateway
+  fill_stage() {  local b="$1" tmp; tmp="$(mktemp)"
+    sed -e "s|{{EVENTS_DB}}|$EVENTS_DB|g" -e "s|{{SPEAKERS_DB}}|$SPEAKERS_DB|g" -e "s|{{TOPICS_DB}}|$TOPICS_DB|g" \
+        -e "s|{{TRENDS_DB}}|$TRENDS_DB|g" -e "s|{{CHAT_ID}}|$CHAT_ID|g" "$HERE/radar/prompts/$b.md" > "$tmp"
+    docker cp "$tmp" "$CONTAINER:$SBX_RADAR/$b.msg"; dx0 sh -c "chown 998:998 $SBX_RADAR/$b.msg"; rm -f "$tmp"; }
+  echo "==> Staging filled prompts ..."; fill_stage conf-radar; fill_stage topic-trends; fill_stage weekly-digest
+  rm_by_name() { local ids; ids="$(gw cron list --json 2>/dev/null | python3 -c "import sys,json
+try: d=json.load(sys.stdin)
+except Exception: d={}
+print('\n'.join(j.get('id','') for j in d.get('jobs',[]) if j.get('name')=='$1'))" 2>/dev/null || true)"
+    local id; for id in $ids; do [ -n "$id" ] && gw cron rm "$id" >/dev/null 2>&1 || true; done; }
+  add_job() { rm_by_name "$1"; echo "==> cron: $1 ($2 $TZ_CRON)"; local out
+    out="$(dx0 sh -c "$SBX_RADAR/gw-cron.sh cron add --name '$1' --cron '$2' --tz '$TZ_CRON' --timeout-seconds '$JOB_TIMEOUT' $3 --message \"\$(cat '$SBX_RADAR/$4.msg')\"" 2>&1 | grep -viE 'qqbot|Config warn')"
+    printf '%s' "$out" | grep -q '"id":' && echo "    ok" || { echo "    ERROR registering $1:" >&2; printf '%s\n' "$out" | tail -4 >&2; }; }
+  local DELIVER="--announce --channel telegram"; [ -n "$CHAT_ID" ] && DELIVER="$DELIVER --to $CHAT_ID"
+  add_job finn-conf-radar    "0 9 * * *"  "--session-key agent:main:conf-radar $DELIVER"        conf-radar
+  add_job finn-topic-trends  "30 9 * * *" "--session-key agent:main:topic-trends --no-deliver"  topic-trends
+  add_job finn-weekly-digest "0 10 * * 1" "--session-key agent:main:weekly-digest $DELIVER"     weekly-digest
+  echo "==> Registered cron jobs:"; gw cron list 2>/dev/null | grep -iE 'finn-(conf-radar|topic-trends|weekly-digest)|^ID|Schedule' | head -10 || true
+  if [ "${DRYRUN:-0}" = 1 ]; then
+    echo "==> DRYRUN: running finn-conf-radar once (slow) ..."
+    local rid; rid="$(gw cron list --json 2>/dev/null | python3 -c "import sys,json;print(next((j['id'] for j in json.load(sys.stdin).get('jobs',[]) if j.get('name')=='finn-conf-radar'),''))" 2>/dev/null || true)"
+    [ -n "$rid" ] && { gw cron run "$rid" --wait --wait-timeout 12m --poll-interval 5s || true; gw cron runs --id "$rid" --limit 1 || true; }
+  fi
+}
+
+# ============================ driver ============================
+# 1-2 first (onboard, then the Telegram REBUILD) — a rebuild wipes runtime config, so it must precede
+# every runtime layer. 3-7 write config/policy/MCP; ONE restart loads them; 8 (radar) needs a live gateway.
+want onboard  && layer_onboard
+
+find_container_or_die() { find_container || { echo "ERROR: no running $SANDBOX container — onboard first." >&2; exit 1; }; }
+
+want telegram && layer_telegram
+# (re-resolve the container: channels-add rebuilt it under a new UUID)
+find_container_or_die
+derive_proxy_ca
+
+RUNTIME=0
+want search   && { layer_search;   RUNTIME=1; }
+want fetch    && { layer_fetch;    RUNTIME=1; }
+want models   && { layer_models;   RUNTIME=1; }
+want calendar && { layer_calendar; RUNTIME=1; }
+want notion   && { layer_notion;   RUNTIME=1; }
+
+# One restart loads model + MCP runtime + fetch provider (radar restarts again only if it grants admin).
+[ "$RUNTIME" = 1 ] && restart_gateway
+
+want radar    && layer_radar
+
+# ---- verify snapshot ----
+echo; echo "==> Config snapshot:"
+printf "    inference primary : %s\n" "$(oc 'openclaw config get agents.defaults.model.primary' | tail -1)"
+printf "    search provider   : %s\n" "$(oc 'openclaw config get tools.web.search.provider' | tail -1)"
+printf "    fetch provider    : %s\n" "$(oc 'openclaw config get tools.web.fetch.provider' | tail -1)"
+printf "    telegram          : %s\n" "$(oc 'openclaw config get channels.telegram.enabled' | tail -1)"
+echo "==> MCP servers:"; dx998 openclaw mcp list 2>&1 | grep -viE 'UNDICI|trace-warn|Config warn|◇|├|╮|╯|│ +-' | head -8 || true
 echo
-echo "==> Config snapshot:"
-printf "    search provider : %s\n" "$(oc 'openclaw config get tools.web.search.provider' | tail -1)"
-printf "    fetch provider  : %s\n" "$(oc 'openclaw config get tools.web.fetch.provider' | tail -1)"
-printf "    telegram        : %s\n" "$(oc 'openclaw config get channels.telegram.enabled' | tail -1)"
-printf "    codeMode        : %s (expect off/unset)\n" "$(oc 'openclaw config get tools.codeMode.enabled' | tail -1)"
-printf "    proxy loopback  : %s (expect gateway-only)\n" "$(oc 'openclaw config get proxy.loopbackMode' | tail -1)"
-echo
-echo "==> nemoclaw $SANDBOX policy-list:"
-nemoclaw "$SANDBOX" policy-list 2>/dev/null | grep -v -E 'UNDICI|trace-warn' | head -20 || true
-
-cat <<EOF
-
-==> Functional self-test (search runs through brave OOTB):
-    nemoclaw $SANDBOX agent --agent main -m "use web_search to find nvidia.com and report the URL"
-$([ -n "${FIRECRAWL_API_KEY:-}" ] && printf '    nemoclaw %s agent --agent main -m "use web_fetch to read https://blogs.nvidia.com and give the headline"\n' "$SANDBOX")
-
-✅ Done. Search works out of the box; $([ -n "${FIRECRAWL_API_KEY:-}" ] && echo 'full-page fetch via Firecrawl is wired' || echo 'set FIRECRAWL_API_KEY and re-run to add full-page fetch').
-   Telegram: DM the bot, then approve pairing (see above). Calendar: ./runmod-finn-live.sh
-EOF
+echo "✅ Done. Final word is a live prompt over Telegram (search/fetch/calendar/notion), then approve the Telegram pairing if new."
+echo "   Re-run any time (idempotent); ONLY='models' / SKIP='radar' scope it. All config comes from .env."

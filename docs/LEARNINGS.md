@@ -124,8 +124,8 @@ a rebuild.
   out-of-band worker; also refresh `/tmp/nemoclaw-gateway.pid` with the live worker pid or the
   container's healthcheck keeps reporting unhealthy (§3).
 - **Recovery after a wipe is a runbook, not archaeology:** secrets live in a gitignored `.env`,
-  and every setup script is idempotent — re-run `channels add` → the runmods → the setup script,
-  then verify (MCP list, cron list, one live search). Design for the wipe on day one.
+  and the setup is idempotent — re-run `./setup-finn.sh` (it re-onboards if needed, then re-applies
+  Telegram + every layer), then verify (MCP list, cron list, one live search). Design for the wipe on day one.
 
 ## 6. Re-onboard traps
 
@@ -155,7 +155,7 @@ a rebuild.
   `agents.defaults.model.primary` at the old value, and the compatible-endpoint smoke check
   fails hard with *"agents.defaults.model.primary is '…'; expected 'inference/<model>'"*. The
   check is right: with the stale pin, every agent turn would request the old model ID from the
-  new endpoint. Fix = rewrite the sandbox model config (see `runmod-models-live.sh`) and TERM
+  new endpoint. Fix = rewrite the sandbox model config (see setup-finn.sh's `models` layer) and TERM
   the gateway worker; the smoke check then passes unchanged.
 
 ## 7. Scheduling agent work on a pinned platform

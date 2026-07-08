@@ -5,7 +5,7 @@
 // REFRESH TOKEN for your personal Microsoft account (live.com / outlook.com),
 // using the OAuth 2.0 device-code flow. The sandbox can't do an interactive
 // browser sign-in, so we acquire the long-lived refresh token here and inject
-// it into finn (see runmod-finn-live.sh).
+// it into finn (see setup-finn.sh's calendar layer).
 //
 // PREREQUISITE — a free Entra ID (Azure AD) app registration (no admin needed):
 //   1. https://entra.microsoft.com  ->  Applications  ->  App registrations  ->  New registration
@@ -80,10 +80,10 @@ async function main() {
       // Success — print the refresh token to STDOUT so it can be captured/piped.
       console.error('\n✅ Success. Refresh token below (treat it like a password).');
       console.error('   Scopes granted:', t.scope || SCOPE);
-      console.error('   Next: export it and run runmod-finn-live.sh:\n');
-      console.error(`     export MS_CALENDAR_CLIENT_ID='${CLIENT_ID}'`);
-      console.error("     export MS_CALENDAR_REFRESH_TOKEN='<the token printed below>'");
-      console.error('     ./runmod-finn-live.sh\n');
+      console.error('   Next: put these in .env, then apply the calendar layer:\n');
+      console.error(`     MS_CALENDAR_CLIENT_ID='${CLIENT_ID}'`);
+      console.error("     MS_CALENDAR_REFRESH_TOKEN='<the token printed below>'");
+      console.error("     ONLY='calendar' ./setup-finn.sh\n");
       console.log(t.refresh_token);
       process.exit(0);
     }
