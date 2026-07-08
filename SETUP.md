@@ -65,7 +65,7 @@ nemoclaw onboard --from ./Dockerfile.finn-2026.6.10 --name finn
 #    Firecrawl fetch, the inference model (compatible-endpoint primary + optional
 #    OpenRouter fallback), the calendar + Notion MCPs, and the radar cron loops.
 #    Each layer runs only if its keys are in .env; safe to re-run after any rebuild.
-NOTION_WRITE=1 MS_CALENDAR_WRITE=1 ./setup-finn.sh   # drop the *_WRITE flags for read-only MCPs
+./setup-finn.sh   # *_WRITE flags come from .env (set NOTION_WRITE=0 / MS_CALENDAR_WRITE=0 there for read-only MCPs)
 #    DRYRUN=1 ./setup-finn.sh          # also runs conf-radar once (~minutes)
 #    ONLY='models' ./setup-finn.sh     # re-apply just one layer (models|calendar|notion|radar|search|fetch|telegram)
 ```
