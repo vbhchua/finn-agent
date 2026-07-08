@@ -44,6 +44,25 @@ INFERENCE_ENDPOINT_URL="${INFERENCE_ENDPOINT_URL:-https://api.moonshot.ai/v1}"  
 INFERENCE_CONTEXT_WINDOW="${INFERENCE_CONTEXT_WINDOW:-262144}"
 INFERENCE_MAX_TOKENS="${INFERENCE_MAX_TOKENS:-8192}"
 OPENROUTER_MODEL="${OPENROUTER_MODEL:-openrouter/moonshotai/kimi-k2.6}"
+DOCKERFILE="${DOCKERFILE:-$HERE/Dockerfile.finn-2026.6.10}"
+
+# Keep the BAKED model pin in sync with .env — .env is the single source of truth.
+# nemoclaw builds the Dockerfile itself with no --build-arg (LEARNINGS §6), so the ARG
+# *defaults* are what get baked into the image; if they drift from the endpoint/model
+# registered at onboard, every recreate (e.g. `channels add telegram`) resets the
+# sandbox to a stale pin and loops on the compatible-endpoint smoke check (§12).
+sync_dockerfile_pin() {
+  [ -f "$DOCKERFILE" ] || { echo "==> Pin sync: $DOCKERFILE not found — skipping."; return 0; }
+  local changed=0 key val
+  for key in INFERENCE_MODEL_ID INFERENCE_CONTEXT_WINDOW INFERENCE_MAX_TOKENS; do
+    eval "val=\$$key"
+    grep -q "^ARG $key=" "$DOCKERFILE" || { echo "    WARNING: ARG $key not found in $DOCKERFILE — is step 2c missing?"; continue; }
+    grep -q "^ARG $key=$val\$" "$DOCKERFILE" && continue
+    sed -i "s|^ARG $key=.*|ARG $key=$val|" "$DOCKERFILE"; changed=1
+  done
+  if [ "$changed" = 1 ]; then echo "==> Synced baked model-pin ARGs in ${DOCKERFILE##*/} from .env (model=$INFERENCE_MODEL_ID)."
+  else echo "==> Baked model-pin ARGs already match .env (model=$INFERENCE_MODEL_ID)."; fi
+}
 
 NOTION_VERSION="${NOTION_VERSION:-2022-06-28}"
 MS_CALENDAR_TENANT="${MS_CALENDAR_TENANT:-consumers}"
@@ -370,6 +389,7 @@ print('\n'.join(j.get('id','') for j in d.get('jobs',[]) if j.get('name')=='$1')
 # ============================ driver ============================
 # 1-2 first (onboard, then the Telegram REBUILD) — a rebuild wipes runtime config, so it must precede
 # every runtime layer. 3-7 write config/policy/MCP; ONE restart loads them; 8 (radar) needs a live gateway.
+sync_dockerfile_pin   # BEFORE anything that can (re)build the image
 want onboard  && layer_onboard
 
 find_container_or_die() { find_container || { echo "ERROR: no running $SANDBOX container — onboard first." >&2; exit 1; }; }

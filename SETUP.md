@@ -52,7 +52,13 @@ set -a; . ./.env; set +a                  # secrets from the gitignored .env (.e
 #    "pull access denied for nemoclaw-finn-base" — see the "base image" section below:
 ./tools/build-finn-base.sh
 
-# 1. Create the sandbox — the OpenClaw 2026.6.10 image (FROM the base built in step 0):
+# 1. Create the sandbox — the OpenClaw 2026.6.10 image (FROM the base built in step 0).
+#    At the prompts, enter the SAME endpoint URL + model id as INFERENCE_* in .env —
+#    .env is the single source of truth for the model: step 2 syncs the Dockerfile's
+#    baked model-pin ARGs from it (sync_dockerfile_pin) so later recreates
+#    (`channels add`, rebuilds) can't drift back to a stale pin (LEARNINGS §6/§12).
+#    No extra pre-step needed: a FRESH onboard writes the pin itself; the bake only
+#    matters for recreates, and you'll have run step 2 before any of those.
 nemoclaw onboard --from ./Dockerfile.finn-2026.6.10 --name finn
 
 # 2. Configure everything from .env in one idempotent pass: Telegram, Brave search,

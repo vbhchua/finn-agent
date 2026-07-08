@@ -104,8 +104,10 @@ RUN node --experimental-strip-types /src/lib/messaging/applier/build/messaging-b
 #     pin and the compatible-endpoint smoke check fails hard with
 #     "agents.defaults.model.primary is '…'; expected 'inference/<model>'" — which
 #     aborts `channels add telegram` in a loop (LEARNINGS §6). Baking the pin makes
-#     every fresh sandbox born smoke-clean. Keep these defaults in sync with
-#     .env.sample / setup-finn.sh layer_models (which stays the runtime re-apply path).
+#     every fresh sandbox born smoke-clean. nemoclaw builds this file with no
+#     --build-arg, so the DEFAULTS below are what get baked — setup-finn.sh rewrites
+#     them from .env on every run (sync_dockerfile_pin), so edit .env, not this file.
+#     layer_models stays the runtime re-apply path for the live sandbox.
 ARG INFERENCE_MODEL_ID=kimi-k2.6
 ARG INFERENCE_CONTEXT_WINDOW=262144
 ARG INFERENCE_MAX_TOKENS=8192
