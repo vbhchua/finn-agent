@@ -210,13 +210,13 @@
       <section class="slide">
         <div class="hero">
           <div>
-            <span class="tag r">NVIDIA NemoClaw · OpenShell · NIM</span>
+            <span class="tag r">NVIDIA NemoClaw · OpenShell · Kimi K2.6</span>
             <h1 class="r">finn<span class="dot">.</span></h1>
             <div class="sub r">A <b>sandboxed research agent</b> on NVIDIA's
               <span class="accent">NemoClaw / OpenShell</span> stack — reached over Telegram,
-              powered by NVIDIA NIM.</div>
+              powered by <b>Kimi K2.6</b> over a host-side OpenAI-compatible endpoint.</div>
             <div class="meta r"><code>nemoclaw onboard --from</code> the 2026.6.10 image · nemoclaw v0.0.68 ·
-              OpenClaw 2026.6.10 · Nemotron-3-Super-120B · 2026-06-26 · rev 2026-07-06</div>
+              OpenClaw 2026.6.10 · Kimi K2.6 (compatible endpoint · OpenRouter fallback) · 2026-06-26 · rev 2026-07-08</div>
           </div>
           <div class="glance r">
             <div class="stat"><div class="n">0</div><div class="l">secrets in the image — <b>all keys injected at runtime</b></div></div>
@@ -277,7 +277,7 @@
             <div class="ctitle">Sandbox · uid 998 (non-root)</div>
             <div class="stackbox">
               <div class="node">nemoclaw-start <small>gateway auth token</small></div>
-              <div class="node green">openclaw gateway :18789 <small>embedded agent · Nemotron (NIM)</small></div>
+              <div class="node green">openclaw gateway :18789 <small>embedded agent · Kimi K2.6</small></div>
               <div class="node">brave · Firecrawl <small>search · fetch</small></div>
               <div class="node">MCP: calendar · Notion <small>+ telegram bridge</small></div>
             </div>
@@ -286,7 +286,7 @@
             <div class="ctitle">Egress &amp; backends</div>
             <div class="stackbox">
               <div class="node gate"><b>L7 proxy</b><small>deny-by-default · single authority</small></div>
-              <div class="node">inference.local <small>→ NVIDIA NIM</small></div>
+              <div class="node">inference.local <small>→ host endpoint (Moonshot · Kimi K2.6)</small></div>
               <div class="node">brave · firecrawl · notion · graph</div>
               <div class="node">api.telegram.org</div>
             </div>
@@ -335,15 +335,15 @@
           <div class="flow" id="flow">
             <div class="step" data-cap="Victor DMs finn on Telegram — inbound is <b>pairing-gated</b>.">
               <div class="si">1</div><h4>Ask</h4><p>DM the bot on Telegram</p></div>
-            <div class="step" data-cap="The authed gateway (uid 998) hands the turn to <b>Nemotron</b> via NVIDIA NIM.">
-              <div class="si">2</div><h4>Wake</h4><p>Gateway → Nemotron (NIM)</p></div>
+            <div class="step" data-cap="The authed gateway (uid 998) hands the turn to <b>Kimi K2.6</b> via the host-side compatible endpoint (inference.local).">
+              <div class="si">2</div><h4>Wake</h4><p>Gateway → Kimi K2.6</p></div>
             <div class="step" data-cap="The agent calls <b>web_search</b> → brave, routed through the L7 proxy.">
               <div class="si">3</div><h4>Search</h4><p>web_search → brave</p><span class="via">via L7 proxy</span></div>
             <div class="step" data-cap="<b>web_fetch</b> → Firecrawl scrapes any public URL <b>server-side</b>, through the proxy.">
               <div class="si">4</div><h4>Read</h4><p>web_fetch → Firecrawl</p><span class="via">via L7 proxy</span></div>
             <div class="step" data-cap="Optional: read calendar / write Notion via the zero-dep <b>MCP tools</b> — same proxy.">
               <div class="si">5</div><h4>Act</h4><p>calendar / Notion (MCP)</p><span class="via">optional</span></div>
-            <div class="step" data-cap="Nemotron composes the answer; it's delivered back over <b>Telegram</b>.">
+            <div class="step" data-cap="Kimi composes the answer; it's delivered back over <b>Telegram</b>.">
               <div class="si">6</div><h4>Answer</h4><p>reply over Telegram</p></div>
           </div>
           <div class="flowctl r">
@@ -409,8 +409,8 @@
           <div class="rule"></div>
         </div>
         <div class="steps-list">
-          <div class="nstep r"><div class="num">1</div><div><div class="nt">Survive host reboots</div><div class="nd">A Mac reboot silently took the host gateway down for days (the service doesn't auto-start) — add boot auto-start + an is-finn-alive heartbeat so the outage pages instead of hides.</div></div></div>
-          <div class="nstep r"><div class="num">2</div><div><div class="nt">Re-test the model trade</div><div class="nd">The one-item-per-run scaffold exists for the 120B executor; price a bigger model per <b>cost-per-completed-task</b> and drop the scaffolding it buys back.</div></div></div>
+          <div class="nstep r"><div class="num">1</div><div><div class="nt">Survive host reboots</div><div class="nd">A Mac reboot once took the host gateway down for days unnoticed; the host is now an EC2 instance — add boot auto-start (systemd) + an is-finn-alive heartbeat so an outage pages instead of hides.</div></div></div>
+          <div class="nstep r"><div class="num">2</div><div><div class="nt">Finish the model trade</div><div class="nd">The primary moved to <b>Kimi K2.6</b> (compatible endpoint, 2026-07-05); the one-item-per-run scaffold built for the 120B executor is still in place — re-price per <b>cost-per-completed-task</b> and drop the scaffolding the stronger model buys back.</div></div></div>
           <div class="nstep r"><div class="num">3</div><div><div class="nt">Teach the bootstrap the new schema</div><div class="nd">The Notion hub grew three pillars (This Quarter · People CRM · Accounts) host-side; extend <code>notion-bootstrap.mjs</code> so a from-scratch rebuild recreates them.</div></div></div>
           <div class="nstep opt r"><div class="num">4</div><div><div class="nt">Optional hardening</div><div class="nd">Self-host Firecrawl to regain read-egress control; keep add-ons read-only for higher-trust deployments.</div></div></div>
         </div>

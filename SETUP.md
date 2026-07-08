@@ -52,25 +52,22 @@ set -a; . ./.env; set +a                  # secrets from the gitignored .env (.e
 #    "pull access denied for nemoclaw-finn-base" — see the "base image" section below:
 ./tools/build-finn-base.sh
 
-# 1. Create the sandbox — the OpenClaw 2026.6.10 image (FROM the base built in step 0):
+# 1. Create the sandbox — the OpenClaw 2026.6.10 image (FROM the base built in step 0).
+#    At the prompts, enter the SAME endpoint URL + model id as INFERENCE_* in .env —
+#    .env is the single source of truth for the model: step 2 syncs the Dockerfile's
+#    baked model-pin ARGs from it (sync_dockerfile_pin) so later recreates
+#    (`channels add`, rebuilds) can't drift back to a stale pin (LEARNINGS §6/§12).
+#    No extra pre-step needed: a FRESH onboard writes the pin itself; the bake only
+#    matters for recreates, and you'll have run step 2 before any of those.
 nemoclaw onboard --from ./Dockerfile.finn-2026.6.10 --name finn
 
-# 2. Full-page web_fetch (Firecrawl) + Brave key + Telegram bot, in one shot:
-./setup-finn.sh
-
-# 3. Outlook / live.com calendar add-on:
-MS_CALENDAR_WRITE=1 ./runmod-finn-live.sh # drop MS_CALENDAR_WRITE for read-only
-
-# 4. Notion connector — needs a Notion internal integration token:
-NOTION_WRITE=1 ./runmod-notion-live.sh    # drop NOTION_WRITE for read-only
-
-# 5. Conference Radar + Topic-Trend loops — needs the Notion connector (step 4);
-#    builds on the event-intelligence Notion:
-./runmod-conference-radar-live.sh         # DRYRUN=1 also runs the radar once
-
-# 6. Model providers — Kimi K2.6 primary (+ optional OpenRouter fallback), see
-#    "Model providers" below:
-./runmod-models-live.sh
+# 2. Configure everything from .env in one idempotent pass: Telegram, Brave search,
+#    Firecrawl fetch, the inference model (compatible-endpoint primary + optional
+#    OpenRouter fallback), the calendar + Notion MCPs, and the radar cron loops.
+#    Each layer runs only if its keys are in .env; safe to re-run after any rebuild.
+NOTION_WRITE=1 MS_CALENDAR_WRITE=1 ./setup-finn.sh   # drop the *_WRITE flags for read-only MCPs
+#    DRYRUN=1 ./setup-finn.sh          # also runs conf-radar once (~minutes)
+#    ONLY='models' ./setup-finn.sh     # re-apply just one layer (models|calendar|notion|radar|search|fetch|telegram)
 ```
 
 **Minimal search-only variant:** a stock `nemoclaw onboard --name finn` (no `--from`) is a
@@ -177,7 +174,7 @@ decided host-side:
   needs the `fixes/openrouter.yaml` egress preset. Default fallback model:
   `openrouter/moonshotai/kimi-k2.6` — the same model over an independent route.
 
-`./runmod-models-live.sh` applies all of it idempotently: activates the openrouter egress
+`ONLY='models' ./setup-finn.sh` applies all of it idempotently: activates the openrouter egress
 preset, rewrites the sandbox model block (`agents.defaults.model.primary` →
 `inference/kimi-k2.6`, model entry, env key + fallbacks when `OPENROUTER_API_KEY` is set),
 TERM-restarts the gateway, and verifies with a PONG probe from the gateway netns. Override
@@ -187,7 +184,7 @@ Two traps to know (details: [docs/LEARNINGS.md](docs/LEARNINGS.md) §4 + §6):
 
 - **A resumed onboard skips the OpenClaw config step**, leaving the old model pinned — the
   compatible-endpoint smoke check then fails with *"agents.defaults.model.primary is '…';
-  expected 'inference/<model>'"*. Run the runmod, then re-run the onboard.
+  expected 'inference/<model>'"*. Run `ONLY='models' ./setup-finn.sh`, then re-run the onboard.
 - **Egress policies enforce `binaries`** — probing `openrouter.ai` with curl returns
   *"CONNECT tunnel failed, response 403"* even when the policy is live; probe with
   `/usr/local/bin/node` (the binary the real traffic uses).
@@ -245,11 +242,11 @@ mint once on your laptop and inject like the Firecrawl key.
    ```bash
    export MS_CALENDAR_CLIENT_ID='<app client id>'
    export MS_CALENDAR_REFRESH_TOKEN='<token printed by step 2>'
-   ./runmod-finn-live.sh                       # read-only
-   MS_CALENDAR_WRITE=1 ./runmod-finn-live.sh    # read/write (create/update/delete)
+   ONLY='calendar' ./setup-finn.sh                       # read-only
+   MS_CALENDAR_WRITE=1 ONLY='calendar' ./setup-finn.sh    # read/write (create/update/delete)
    ```
 
-`runmod-finn-live.sh` applies the **`ms-calendar`** network policy (`fixes/ms-calendar.yaml` →
+`setup-finn.sh`'s calendar layer applies the **`ms-calendar`** network policy (`fixes/ms-calendar.yaml` →
 `graph.microsoft.com` + `login.microsoftonline.com` only), installs the MCP server at
 `/sandbox/mcp/`, writes credentials to a sandbox-only `0600` file
 (`/sandbox/.config/ms-calendar.env`, **not** `openclaw.json`), registers the server with
@@ -309,11 +306,11 @@ the MCP runtime).
 3. Run it:
    ```bash
    export NOTION_TOKEN='ntn_...'
-   ./runmod-notion-live.sh                    # read-only
-   NOTION_WRITE=1 ./runmod-notion-live.sh     # read/write
+   ONLY='notion' ./setup-finn.sh                    # read-only
+   NOTION_WRITE=1 ONLY='notion' ./setup-finn.sh     # read/write
    ```
 
-`runmod-notion-live.sh` applies the **`notion`** network policy (`fixes/notion.yaml` →
+`setup-finn.sh`'s notion layer applies the **`notion`** network policy (`fixes/notion.yaml` →
 `api.notion.com` GET/POST/PATCH), installs the server, writes the token to `/sandbox/.config/notion.env`
 (0600, **not** `openclaw.json`), registers the MCP server, and restarts the gateway to rebuild the MCP
 runtime. Run it WITHOUT `NOTION_TOKEN` to wire + validate egress first; the tools stay unauthenticated
@@ -337,8 +334,8 @@ web, update **Notion**, and push to **Telegram**. Builds ON TOP of the **event-i
 
 ```bash
 export NOTION_TOKEN='ntn_...'
-./runmod-conference-radar-live.sh        # bootstrap Notion + register the 3 cron jobs
-DRYRUN=1 ./runmod-conference-radar-live.sh   # ...and run conf-radar once now (~minutes)
+ONLY='radar' ./setup-finn.sh        # bootstrap Notion + register the 3 cron jobs
+DRYRUN=1 ONLY='radar' ./setup-finn.sh   # ...and run conf-radar once now (~minutes)
 ```
 
 What it sets up:
@@ -352,7 +349,7 @@ What it sets up:
 - **`finn-weekly-digest`** (Mon 10:00 SGT) — the one routine Telegram message: upcoming-soon,
   this-week's updates, trend movers, finn's `Proposed` events.
 
-The runmod (idempotent) **bootstraps Notion host-side** (`radar/notion-bootstrap.mjs`: extends the
+The radar layer (idempotent) **bootstraps Notion host-side** (`radar/notion-bootstrap.mjs`: extends the
 events DB in place with `Last checked`/`Next check due`/`Latest change`, creates `finn · Topics` +
 `finn · Trend snapshots` under the hub, seeds topics + the trend baseline + 12 APAC `Proposed`
 events), then **grants the gateway `operator.admin`** (`radar/grant-cron-admin.py`) and **registers
@@ -363,7 +360,7 @@ ctr=$(docker ps --filter name=openshell-finn --format '{{.Names}}' | head -1)
 docker exec -u 0 "$ctr" /sandbox/.cache/radar/gw-cron.sh cron list
 docker exec -u 0 "$ctr" /sandbox/.cache/radar/gw-cron.sh cron run <jobId> --wait --wait-timeout 12m
 ```
-then over Telegram you'll get the daily radar line + the Monday digest. Re-run the runmod after any
+then over Telegram you'll get the daily radar line + the Monday digest. Re-run `ONLY='radar' ./setup-finn.sh` after any
 full rebuild (cron jobs live in the gateway and are lost on a fresh `onboard`).
 
 ---
@@ -577,12 +574,12 @@ printf '%s\n' \
 
 | diagnostics says | Cause | Fix |
 |---|---|---|
-| `egress …: FAIL …` | `ms-calendar` network policy not applied | `nemoclaw finn policy-add ms-calendar --yes` (re-run `runmod-finn-live.sh`) |
-| `client_id: MISSING` / `refresh_token: MISSING` | creds file absent (e.g. after a rebuild) | re-run `runmod-finn-live.sh` with `MS_CALENDAR_*` exported |
+| `egress …: FAIL …` | `ms-calendar` network policy not applied | `nemoclaw finn policy-add ms-calendar --yes` (re-run `ONLY='calendar' ./setup-finn.sh`) |
+| `client_id: MISSING` / `refresh_token: MISSING` | creds file absent (e.g. after a rebuild) | re-run `ONLY='calendar' ./setup-finn.sh` with `MS_CALENDAR_*` exported |
 | `token refresh: FAIL … invalid/expired` | refresh token dead (personal-MSA tokens roll if unused ~90d) | re-mint: `node tools/ms-graph-login.mjs <CLIENT_ID>`, re-inject |
 | `openclaw mcp list` doesn't show `ms-calendar` | not registered | `openclaw mcp set …` then restart the gateway (the script does both) |
 | `diagnostics` shows read-only / no `create_event` | write not enabled | re-run with `MS_CALENDAR_WRITE=1` |
-| `create/update/delete` returns **403 ErrorAccessDenied** | token was minted read-only (`Calendars.Read`) | re-mint with the ReadWrite scope (`node tools/ms-graph-login.mjs <CLIENT_ID>` defaults to it), then `MS_CALENDAR_WRITE=1 ./runmod-finn-live.sh` |
+| `create/update/delete` returns **403 ErrorAccessDenied** | token was minted read-only (`Calendars.Read`) | re-mint with the ReadWrite scope (`node tools/ms-graph-login.mjs <CLIENT_ID>` defaults to it), then `MS_CALENDAR_WRITE=1 ONLY='calendar' ./setup-finn.sh` |
 
 The server is at `/sandbox/mcp/` and creds at `/sandbox/.config/ms-calendar.env` — both live in the
 sandbox workspace (out of the image/repo), so **re-apply after a full rebuild** (`onboard`).
@@ -600,7 +597,7 @@ the open **main** netns (`docker exec`) — wrong namespace, so it misleads you.
 **The current `mcp/ms-calendar-mcp.mjs` already fixes this**: on startup it detects the missing proxy,
 reads it from its gateway ancestor's `/proc/<ppid>/environ`, and re-execs itself with `HTTPS_PROXY` +
 `NODE_USE_ENV_PROXY=1` + `NODE_EXTRA_CA_CERTS` so Node routes through the proxy and trusts the MITM CA.
-So the fix is just to **make sure the up-to-date server is deployed** — re-run `runmod-finn-live.sh`
+So the fix is just to **make sure the up-to-date server is deployed** — re-run `ONLY='calendar' ./setup-finn.sh`
 (it re-copies the server, registers it, and restarts the gateway).
 
 ### Symptom: agent says "no access" and did **not** try (no calendar tool mentioned)
@@ -618,7 +615,7 @@ docker exec -u 0 "$cid" sh -c 'for p in $(pgrep -x openclaw); do pp=$(awk "{prin
 # confirm a fresh "[gateway] http server listening" + "ready" in /tmp/gateway.log
 ```
 
-`runmod-finn-live.sh` does exactly this restart automatically, so a normal re-run also fixes it.
+`ONLY='calendar' ./setup-finn.sh` does exactly this restart automatically, so a normal re-run also fixes it.
 (Do **not** match the worker by `pkill -f "gateway run"` — on some onboards its argv is just `openclaw`.)
 
 ### Other gotchas

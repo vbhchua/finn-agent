@@ -3,12 +3,12 @@
 # 4 (cont.). Security of the optional add-ons
 
 These are **items 6–8 of the §4 [[03-security-analysis|security analysis]]** — the optional
-runtime add-ons. Each applies only if you ran the corresponding `runmod-*` script; a base
+runtime add-ons. Each applies only if you enabled the corresponding setup-finn.sh layer; a base
 finn has none of them.
 
 ## 6. Calendar add-on — Graph calendar via MCP
 
-*Applies only if `runmod-finn-live.sh` was run.*
+*Applies only if setup-finn.sh's `calendar` layer was run.*
 
 > [!warning] Read by default; create/update/delete is an opt-in with a real blast radius
 > The MCP server lets the agent read calendar events + the calendar list, and — **when
@@ -51,7 +51,7 @@ The read-vs-write guard is layered, **scope-first** — not the egress method li
 
 ## 7. Notion connector — via MCP
 
-*Applies only if `runmod-notion-live.sh` was run.*
+*Applies only if setup-finn.sh's `notion` layer was run.*
 
 > [!warning] Read by default; create/update/append is an opt-in
 > The MCP server lets the agent **search and read** Notion pages/databases, and — **when
@@ -90,7 +90,7 @@ The read-vs-write guard is layered, **scope-first** — not the egress method li
 
 ## 8. Conference Radar + Topic-Trend cron loops
 
-*Applies only if `runmod-conference-radar-live.sh` was run.*
+*Applies only if setup-finn.sh's `radar` layer was run.*
 
 > [!warning] Autonomous, scheduled, web-reading + Notion-writing turns
 > The three gateway cron jobs run **unattended** agent turns that read **arbitrary web pages**

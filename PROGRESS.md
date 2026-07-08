@@ -32,6 +32,19 @@ new dated entry at the top as work lands.
 
 ## 2026-07-08
 
+- **Consolidated the four `runmod-*.sh` add-ons into a single, `.env`-driven `setup-finn.sh`.** One
+  idempotent configurator now onboards a stock sandbox if missing, then applies every layer — Telegram,
+  Brave search, Firecrawl fetch, the inference model (compatible-endpoint primary + optional OpenRouter
+  fallback), the calendar + Notion MCP servers, and the radar crons — each running only if its keys are
+  in `.env`; scope with `ONLY=`/`SKIP=`. The near-duplicated skeleton (container discovery, presets-dir
+  resolution, proxy/CA derivation, `openclaw mcp set`, the TERM-worker gateway restart) is factored into
+  shared helpers, so the one file is smaller than the sum of the runmods. Inference is generalized from
+  the hardcoded `KIMI_*` knobs to `INFERENCE_MODEL_ID` / `INFERENCE_ENDPOINT_URL` (swap providers by
+  editing `.env`, no code change). Removed `runmod-{finn,notion,conference-radar,models}-live.sh`;
+  README/SETUP/`.env.sample`/CLAUDE(.local) updated. ⚠️ Syntax-checked only (`bash -n` + both embedded
+  python heredocs parse) — NOT exercised end-to-end; must be validated against a live EC2 bring-up
+  before it's trusted (no running sandbox in this session).
+
 - **Fresh-host base-build is now a documented, idempotent one-liner (`tools/build-finn-base.sh`).**
   A from-scratch onboard on a new EC2 failed at `FROM nemoclaw-finn-base:2026.6.10` with *"pull access
   denied … repository does not exist"* — the base image is built locally and never pushed, so a host

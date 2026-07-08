@@ -11,8 +11,10 @@ gotchas (symptom → root cause → fix): `docs/LEARNINGS.md`. Build log: `PROGR
 
 ## Script & secrets conventions
 
-- `setup-*` = build/onboard a sandbox; `runmod-*` = modify a **live** running container. All are
-  idempotent — re-run after any rebuild.
+- `setup-finn.sh` is the single idempotent configurator: it onboards a stock sandbox if missing,
+  then applies every layer (Telegram · search · fetch · inference model · calendar + Notion MCPs ·
+  radar crons) from `.env`. Each layer runs only if its keys are set; scope with `ONLY=`/`SKIP=`.
+  Re-run after any rebuild. (The former `runmod-*.sh` add-ons were folded into it.)
 - Runtime add-ons (MCP servers, channels, cron jobs, API keys) live in the container's writable
   layer and are **wiped by any rebuild/re-onboard**; only the baked Telegram token and host-side
   egress policies survive. Re-apply with the scripts — never patch the live container by hand.
@@ -32,6 +34,10 @@ gotchas (symptom → root cause → fix): `docs/LEARNINGS.md`. Build log: `PROGR
 - A `--from` onboard image needs the vendored patch
   `patches/nemoclaw-2026.6.x-chat-send-runid.patch` (upstream NemoClaw ≤ v0.0.68 only covers
   OpenClaw ≤ 2026.6.8). (§8)
+- **Any rebuild wipes gateway device pairing** — every `openclaw` CLI call then fails with
+  `pairing required` and `nemoclaw finn agent` silently falls back to the embedded path.
+  Re-bootstrap with `tools/approve-cli-device.sh`; never trust a PONG that follows an
+  `EMBEDDED FALLBACK` line. (§12)
 
 ## Verifying a change
 

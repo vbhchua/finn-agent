@@ -24,11 +24,11 @@ inference:
   fallbacks:
     - openrouter/moonshotai/kimi-k2.6  # optional DIRECT route via OpenClaw's built-in
                                        #   openrouter provider (OPENROUTER_API_KEY +
-                                       #   fixes/openrouter.yaml; runmod-models-live.sh)
+                                       #   fixes/openrouter.yaml; setup-finn.sh models layer)
 
 # Search is brave (built in). Fetch is the optional Firecrawl layer that
 # setup-finn.sh adds at runtime when FIRECRAWL_API_KEY is set (full-page web_fetch
-# without per-site allow-listing). Calendar is the optional runmod-finn-live.sh add-on.
+# without per-site allow-listing). Calendar is setup-finn.sh's optional calendar layer.
 capabilities:
   search: brave                # out of the box
   fetch: firecrawl             # optional; bundled stock extension, enabled at runtime

@@ -3,7 +3,7 @@
 # Custom NemoClaw network-policy preset: allows egress to the OpenRouter API so
 # OpenClaw's BUILT-IN openrouter provider can serve `openrouter/<author>/<slug>`
 # model refs (used as direct fallback routes behind the managed inference.local
-# primary — see runmod-models-live.sh).
+# primary — see setup-finn.sh's models layer).
 #
 # Endpoint: openrouter.ai only (chat completions live under /api/v1/**). The
 # request is issued by the gateway's node runtime from inside the proxy-only

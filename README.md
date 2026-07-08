@@ -49,7 +49,8 @@ and pings you the moment something moves.</em>
 > **This is the stack finn actually runs**: OpenClaw **2026.6.10**, **Kimi K2.6** inference
 > through the gateway's compatible-endpoint (OpenRouter as an optional direct fallback), web
 > search + full-page fetch, Telegram control, the calendar + Notion MCP servers, and the radar
-> loops. All six steps are standard — run them in order. Secrets live in a gitignored **`.env`**
+> loops. After the one-time base build (step 0), it's just **onboard → `./setup-finn.sh`**, which
+> configures every layer from `.env` in one idempotent pass. Secrets live in a gitignored **`.env`**
 > (template: `.env.sample`); every `./…` script is idempotent (re-run after any rebuild).
 > One-time prerequisites (the 2026.6.10 base build + vendored NemoClaw patch, the Entra app,
 > the Notion integration) and troubleshooting live in **[SETUP.md](SETUP.md)**.
@@ -65,22 +66,12 @@ set -a; . ./.env; set +a                    # load all keys (.env.sample lists t
 # 1. Sandbox — the OpenClaw 2026.6.10 image (FROM the base built in step 0):
 nemoclaw onboard --from ./Dockerfile.finn-2026.6.10 --name finn
 
-# 2. Full-page fetch (Firecrawl) + Brave search key + Telegram bot — one shot:
-./setup-finn.sh                             # uses FIRECRAWL_API_KEY · BRAVE_API_KEY · TELEGRAM_BOT_TOKEN
-
-# 3. Outlook / live.com calendar (refresh token minted once via tools/ms-graph-login.mjs):
-MS_CALENDAR_WRITE=1 ./runmod-finn-live.sh   # drop MS_CALENDAR_WRITE for read-only
-
-# 4. Notion connector (internal integration, hub pages shared with it):
-NOTION_WRITE=1 ./runmod-notion-live.sh      # drop NOTION_WRITE for read-only
-
-# 5. Conference Radar + Topic Trends + weekly digest (reuses NOTION_TOKEN):
-./runmod-conference-radar-live.sh           # DRYRUN=1 also runs the radar once
-
-# 6. Model providers — Kimi K2.6 primary through the gateway's compatible-endpoint
-#    (MOONSHOT_API_KEY is registered gateway-side at onboard); OpenRouter direct
-#    fallback activates when OPENROUTER_API_KEY is set:
-./runmod-models-live.sh
+# 2. Configure EVERYTHING from .env in one idempotent pass — Telegram, Brave search,
+#    Firecrawl fetch, the inference model (compatible-endpoint primary + optional
+#    OpenRouter fallback), the calendar + Notion MCPs, and the radar crons. Each
+#    layer is applied only if its keys are present in .env; safe to re-run after any
+#    rebuild. Scope to one layer with ONLY='models' (or skip with SKIP='radar').
+NOTION_WRITE=1 MS_CALENDAR_WRITE=1 ./setup-finn.sh   # drop the *_WRITE flags for read-only MCPs
 ```
 
 > **Minimal variant** (not the path finn runs): a stock `nemoclaw onboard --name finn` alone

@@ -47,7 +47,7 @@ host (macOS)                         sandbox container (uid 998 "sandbox")
 > Exa *build* is retired (preserved in git history) — no image build is needed now.
 
 > [!note] Add-on — Outlook / live.com calendar (via MCP)
-> An optional **runtime** add-on (`runmod-finn-live.sh`) registers a zero-dep Microsoft
+> An optional **runtime** add-on (setup-finn.sh's `calendar` layer) registers a zero-dep Microsoft
 > Graph **MCP server** (`mcp/ms-calendar-mcp.mjs`) giving the agent calendar tools —
 > **read-only by default**, with create/update/delete behind an explicit `MS_CALENDAR_WRITE=1`
 > opt-in (+ a `Calendars.ReadWrite` token). It adds two egress hosts (`graph.microsoft.com` +
@@ -57,7 +57,7 @@ host (macOS)                         sandbox container (uid 998 "sandbox")
 > treatment in [[04-add-on-security#6. Calendar add-on — Graph calendar via MCP|§4 item 6]].
 
 > [!note] Add-on — Notion (via MCP)
-> A second optional **runtime** add-on (`runmod-notion-live.sh`) registers a zero-dep Notion REST
+> A second optional **runtime** add-on (setup-finn.sh's `notion` layer) registers a zero-dep Notion REST
 > **MCP server** (`mcp/notion-mcp.mjs`) giving the agent Notion tools — **read-only by default**
 > (search / read pages + databases), with create/update/append behind an explicit `NOTION_WRITE=1`
 > opt-in. It adds one egress host (`api.notion.com`, `fixes/notion.yaml`) and authenticates with a
