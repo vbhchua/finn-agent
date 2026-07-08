@@ -242,7 +242,7 @@ const DATA = {
       {k:'Radar cron jobs',v:'3',n:'of 3 registered',good:true},
       {k:'Events / run',v:'1',n:'kept from the proposal',good:true},
       {k:'Tools fire?',v:'Yes',n:'cron is tool-primed',good:true},
-      {k:'Nemotron finishes?',v:'Yes',n:'single-event checklist',good:true},
+      {k:'Executor finishes?',v:'Yes',n:'single-event checklist',good:true},
       {k:'Writes',v:'Cadence only',n:'ownership matrix',good:true},
     ],
     stages:[
@@ -254,7 +254,7 @@ const DATA = {
        detail:'Kept from the proposal: Notion answers "what is due today" with a server-side filter on <code>Next check due</code>, so the weak model does minimal date math and only due events are touched.'},
       {ico:'🤖',h:'1 agent run — 1 event',sub:'cron-fired · fully primed',status:'ok',
        li:['full bootstrap → tools primed','one rigid checklist per run'],
-       detail:'One-event-per-run was <b>kept deliberately</b> — not because cron can\'t drive tools any more, but because the 120B executor reliably finishes a single rigid checklist. Erasing that scaffold is a <b>cost-per-completed-task</b> decision for a bigger model, not an architecture necessity.'},
+       detail:'One-event-per-run was <b>kept deliberately</b> — not because cron can\'t drive tools any more, but because the 120B executor reliably finishes a single rigid checklist. Erasing that scaffold is a <b>cost-per-completed-task</b> decision for a bigger model, not an architecture necessity. (Since 2026-07-05 the executor is <b>Kimi K2.6</b> via the compatible endpoint — the scaffold is retained pending that re-test.)'},
       {ico:'🛠',h:'Checklist + guardrails',sub:'4 calls · cadence writes only',status:'ok',count:'4 calls',
        li:['query → search → fetch → update','writes ONLY <code>Last checked</code> · <code>Next check due</code> · <code>Latest change</code>','regional (non-SG) events → speakers/themes only'],
        detail:'The prompts are frontier-authored for the weak executor (literal cadence table, exact property names) and carry the <b>ownership matrix</b>: finn\'s loops write facts + cadence; every decision column stays human. Scope is Singapore-first — regional events feed speaker rosters + theme trends, never travel actions.'},
@@ -307,7 +307,7 @@ const CMP=[
   ['Events per run','9 (one loop)','1 (single-event checklist)','1 — kept deliberately'],
   ['Runs per day','1','0–9 (only due events)','1 daily + 2 weekly'],
   ['Tools actually fire','No','Yes','Yes'],
-  ['Nemotron completes','No','Yes (proven)','Yes (live: heartbeats + digest)'],
+  ['Executor completes','No (Nemotron)','Yes (proven)','Yes (live: heartbeats + digest)'],
 ];
 function render(){
   const s=DATA[CURRENT];
