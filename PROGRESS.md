@@ -32,6 +32,17 @@ new dated entry at the top as work lands.
 
 ## 2026-07-08
 
+- **Fresh-host base-build is now a documented, idempotent one-liner (`tools/build-finn-base.sh`).**
+  A from-scratch onboard on a new EC2 failed at `FROM nemoclaw-finn-base:2026.6.10` with *"pull access
+  denied … repository does not exist"* — the base image is built locally and never pushed, so a host
+  that lacks it tries (and fails) to pull it. The golden path assumed the base already existed (true on
+  the dev Mac, not on a fresh host). Added `tools/build-finn-base.sh` (pins NemoClaw v0.0.68, applies the
+  vendored patch, builds; skips if the tag is present, `FORCE=1` rebuilds), a step 0 in the README/SETUP
+  golden paths, a "Fresh host / new EC2" section (build-first ordering, the arch caveat — don't ship an
+  arm64 image to x86_64 — and registry/ECR reuse via `docker pull` + re-tag, since `nemoclaw onboard` has
+  no `--build-arg`), and LEARNINGS §6. Idempotent skip-guard verified; the full clone+patch+build path is
+  a faithful transcription of the documented commands (not run end-to-end in this session).
+
 - **Reverted the host-gateway macOS launchd LaunchAgent (the 2026-07-07 `com.nemoclaw.openshell-gateway`
   work).** In practice it *double-managed* the host gateway: launchd (RunAtLoad + KeepAlive) fought
   `nemoclaw`'s own gateway supervision over `127.0.0.1:8080`, while a stray `brew services` gateway

@@ -57,8 +57,12 @@ and pings you the moment something moves.</em>
 ```bash
 set -a; . ./.env; set +a                    # load all keys (.env.sample lists them)
 
-# 1. Sandbox — the OpenClaw 2026.6.10 image (needs NemoClaw v0.0.68 + the vendored
-#    patch in patches/; one-time base build → SETUP.md):
+# 0. One-time per host — build the LOCAL base image the onboard builds FROM.
+#    Idempotent (skips if present). On a fresh host, SKIP THIS and step 1 fails
+#    with "pull access denied for nemoclaw-finn-base" (details → SETUP.md):
+./tools/build-finn-base.sh
+
+# 1. Sandbox — the OpenClaw 2026.6.10 image (FROM the base built in step 0):
 nemoclaw onboard --from ./Dockerfile.finn-2026.6.10 --name finn
 
 # 2. Full-page fetch (Firecrawl) + Brave search key + Telegram bot — one shot:
