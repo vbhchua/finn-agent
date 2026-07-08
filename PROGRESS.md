@@ -30,31 +30,23 @@ new dated entry at the top as work lands.
 
 ---
 
-## 2026-07-07
+## 2026-07-08
 
-- **The host gateway now runs as a macOS LaunchAgent (`com.nemoclaw.openshell-gateway`) —
-  the 2026-07-06 outage class (gateway dies with a reboot, nothing restarts it, sandbox
-  crash-loops for days) is closed.** New `tools/install-gateway-launchagent.sh` reproduces the
-  gateway's env-var-driven config exactly (brew keg 0.0.44 binary, profile `nemoclaw`,
-  plaintext 127.0.0.1:8080, sqlite state under `~/.local/state/nemoclaw/openshell-docker-gateway/`)
-  in a RunAtLoad + KeepAlive plist, boots out any previous agent, TERMs the unmanaged process
-  holding the port, and verifies the takeover (listener under launchd + supervisor
-  reconnection). Idempotent re-runs; `UNINSTALL=1` removes it. The live takeover exposed three
-  recovery gotchas, all now handled/documented: (1) the outgoing gateway `docker stop`s its
-  sandboxes and `unless-stopped` never revives them — the installer now `docker start`s exited
-  sandbox containers (raw-started containers come up supervisor-idle → `nemoclaw recover`
-  relaunches the in-container gateway); (2) after `recover` the worker is pid-1-parented, so
-  `radar/gw-cron.sh` gained a token-based fallback for finding the gateway, and the stale
-  `/tmp/nemoclaw-gateway.pid` must be refreshed or the healthcheck stays red (LEARNINGS §5/§9);
-  (3) ⚠️ plain `nemoclaw rebuild` on this custom-image sandbox targets the STOCK base = a silent
-  OpenClaw 2026.6.10 → 2026.5.27 downgrade — aborted at the prompt, documented in LEARNINGS §5.
-  Also surfaced: the runtime layer (calendar/Notion MCPs + all 3 radar crons + search keys) had
-  been silently wiped by the 2026-07-06 gateway/profile migration — re-applied from the
-  idempotent scripts. End state verified: container healthy, gateway under launchd,
-  ms-calendar + notion registered, 3 crons live, and an end-to-end `web_search` agent run on
-  Kimi K2.6. Scope note in the script and LEARNINGS §9: launchd keeps the *process* alive
-  through reboots/crashes; it does not keep a lid-closed Mac awake (sleeping-host cron misses
-  are a pmset/lid matter).
+- **Reverted the host-gateway macOS launchd LaunchAgent (the 2026-07-07 `com.nemoclaw.openshell-gateway`
+  work).** In practice it *double-managed* the host gateway: launchd (RunAtLoad + KeepAlive) fought
+  `nemoclaw`'s own gateway supervision over `127.0.0.1:8080`, while a stray `brew services` gateway
+  (`homebrew.mxcl.openshell`, :17670, from a 2026-06-24 experiment) added a third contender. Net effect
+  was an *"Address already in use"* restart-storm — launchd looping on exit 1, `runtime.json` pointing
+  at a pid that died seconds later, and the finn sandbox getting re-created un-onboarded during the
+  churn (Telegram channel + pairing wiped along with the rest of the runtime layer). Host supervision is
+  deferred to **systemd on the planned Linux EC2 host**, where the gateway is one service with no
+  competing manager. **Kept** `radar/gw-cron.sh`'s token-based out-of-band gateway-PID fallback — it is
+  needed under systemd too (the gateway is reparented, so the `nemoclaw-start`-child lookup wouldn't find
+  it). Removed `tools/install-gateway-launchagent.sh` and its launchd docs; the model-provider work
+  (Kimi K2.6 / OpenRouter, 2026-07-07) is untouched. Reboot-death remains an open item until the EC2
+  systemd unit lands (LEARNINGS §9).
+
+## 2026-07-07
 
 - **Inference switched to Kimi K2.6 (Moonshot AI) via the gateway's `compatible-endpoint`
   provider; OpenRouter wired as an optional direct fallback route (`runmod-models-live.sh`).**

@@ -199,13 +199,15 @@ diagnostics assume the Linux container layout:
   config bug.** Wiring bugs are deterministic; capacity bugs are not.
 - **A host-process gateway that nothing supervises dies with the first reboot** — and the
   sandbox supervisor's crash loop *looks* like a container bug while the real failure is one
-  layer up. Run it under the OS service manager (`tools/install-gateway-launchagent.sh`:
-  launchd LaunchAgent, RunAtLoad + KeepAlive, env-var config reproduced exactly). Takeover
-  gotcha: the outgoing gateway `docker stop`s its sandboxes, and restart policy
-  `unless-stopped` never revives an explicitly-stopped container — the new gateway then loops
-  on *"Sandbox failed to become ready (ContainerExited)"* until someone runs `docker start`
-  (the installer does). Note the service manager keeps the *process* alive, not the
-  *machine* — a lid-closed sleeping laptop still pauses every cron.
+  layer up. Run it under **exactly one** OS service manager (systemd on the planned Linux host).
+  A macOS launchd LaunchAgent was tried and reverted: it double-managed the gateway against
+  `nemoclaw`'s own supervision (and a stray `brew services` gateway), producing an *"Address
+  already in use"* restart-storm on `:8080` — the lesson is one owner per gateway, not a second
+  supervisor bolted on. Restart gotcha regardless of manager: stopping the outgoing gateway
+  `docker stop`s its sandboxes, and restart policy `unless-stopped` never revives an
+  explicitly-stopped container — the replacement gateway then loops on *"Sandbox failed to
+  become ready (ContainerExited)"* until someone runs `docker start`. A service manager keeps
+  the *process* alive, not the *machine* — a lid-closed sleeping laptop still pauses every cron.
 
 ## 10. Writing a zero-dep MCP server (craft notes)
 

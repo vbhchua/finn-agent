@@ -79,10 +79,6 @@ NOTION_WRITE=1 ./runmod-notion-live.sh      # drop NOTION_WRITE for read-only
 ./runmod-models-live.sh
 ```
 
-> **Host resilience (macOS):** `./tools/install-gateway-launchagent.sh` puts the host
-> `openshell-gateway` under launchd (RunAtLoad + KeepAlive) so a reboot or crash can't
-> silently take the whole stack down.
-
 > **Minimal variant** (not the path finn runs): a stock `nemoclaw onboard --name finn` alone
 > gives a working search-only agent — kept in [SETUP.md](SETUP.md) for reference.
 
