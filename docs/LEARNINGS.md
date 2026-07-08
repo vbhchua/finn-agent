@@ -129,6 +129,15 @@ a rebuild.
 
 ## 6. Re-onboard traps
 
+- **On a fresh host, build the base image BEFORE `onboard` — a Docker *pull* error for a
+  local-only tag is the tell.** `Dockerfile.finn-2026.6.10` starts `FROM
+  nemoclaw-finn-base:2026.6.10`, which is built locally and never pushed to a registry. On a
+  machine that lacks it, `nemoclaw onboard --from …` treats the tag as a registry ref and dies
+  with *"pull access denied for nemoclaw-finn-base, repository does not exist."* That is not an
+  auth problem — it means the one-time base build was skipped. Fix = `./tools/build-finn-base.sh`
+  (idempotent) before onboarding. Build **natively** on the target arch (an arm64 image won't run
+  on x86_64); to reuse across instances, push to a registry and `docker pull` + re-tag to the
+  local name — `nemoclaw onboard` has no `--build-arg` to repoint the base. (SETUP.md → base image.)
 - **"Auto-injected" credentials are only injected on a *fresh* onboard.** A bare re-onboard
   leaves the search provider with a placeholder key and its egress preset inactive →
   `web_search` fails with a generic *"fetch failed"*. The setup script now re-applies key +

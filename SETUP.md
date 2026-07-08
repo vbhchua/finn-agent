@@ -47,7 +47,12 @@ The golden path (what finn actually runs — same as the README's Quick Setup):
 ```bash
 set -a; . ./.env; set +a                  # secrets from the gitignored .env (.env.sample = template)
 
-# 1. Create the sandbox — the OpenClaw 2026.6.10 image (one-time base build → below):
+# 0. One-time per host — build the local base image step 1 builds FROM (idempotent;
+#    skips if present). Skipping it on a fresh host makes step 1 fail with
+#    "pull access denied for nemoclaw-finn-base" — see the "base image" section below:
+./tools/build-finn-base.sh
+
+# 1. Create the sandbox — the OpenClaw 2026.6.10 image (FROM the base built in step 0):
 nemoclaw onboard --from ./Dockerfile.finn-2026.6.10 --name finn
 
 # 2. Full-page web_fetch (Firecrawl) + Brave key + Telegram bot, in one shot:
@@ -75,11 +80,23 @@ Firecrawl, and the **Telegram** channel.
 
 ### One-time: build the 2026.6.10 base image
 
-`Dockerfile.finn-2026.6.10` builds `FROM nemoclaw-finn-base:2026.6.10`, which you build once
-from a **NemoClaw v0.0.68** checkout — **pin the tag**; the combination is verified against
-v0.0.68 exactly ([tags](https://github.com/NVIDIA/NemoClaw/tags)). NemoClaw's bundled patches
-only cover OpenClaw ≤ 2026.6.8 (2026.6.9 changed the chat-send run-id callsite), so apply the
-vendored 1-line tolerance first:
+`Dockerfile.finn-2026.6.10` builds `FROM nemoclaw-finn-base:2026.6.10` — a **local-only** image
+(never in a registry). It must exist locally **before** `nemoclaw onboard --from …`, or Docker
+treats the tag as a registry ref and the onboard fails with `pull access denied for
+nemoclaw-finn-base, repository does not exist`. That error means "you skipped this step."
+
+**Recommended — one idempotent command** (skips if the image is already present; `FORCE=1`
+rebuilds):
+
+```bash
+./tools/build-finn-base.sh
+```
+
+It runs exactly the steps below: build once from a **NemoClaw v0.0.68** checkout — **pin the
+tag**; the combination is verified against v0.0.68 exactly
+([tags](https://github.com/NVIDIA/NemoClaw/tags)). NemoClaw's bundled patches only cover
+OpenClaw ≤ 2026.6.8 (2026.6.9 changed the chat-send run-id callsite), so it applies the vendored
+1-line tolerance first:
 
 ```bash
 git clone --branch v0.0.68 --depth 1 https://github.com/NVIDIA/NemoClaw.git && cd NemoClaw
@@ -89,6 +106,31 @@ docker build -t nemoclaw-finn-base:2026.6.10 \
   --build-arg NEMOCLAW_WEB_SEARCH_ENABLED=1 \
   -f Dockerfile .
 ```
+
+#### Fresh host / new EC2
+
+- **Order matters:** run `./tools/build-finn-base.sh` (or the manual build) **before**
+  `nemoclaw onboard`. The base build needs outbound HTTPS (GitHub + ghcr + npm) and ~15–20 GB
+  free disk.
+- **Build natively — don't ship the image across architectures.** The image built on Apple
+  Silicon is `linux/arm64`; a `docker save | docker load` onto an **x86_64** EC2 (c5/m5/g5/…)
+  won't run. Build on the target host (or on a machine of the same arch). finn needs no GPU —
+  inference is remote (the Kimi/Moonshot compatible-endpoint), so a general-purpose instance is
+  fine.
+- **Reuse across instances via a registry (e.g. ECR).** `nemoclaw onboard` has **no
+  `--build-arg`**, so you can't repoint `BASE_IMAGE` at onboard time — instead make the tag
+  resolve locally by pulling and re-tagging:
+
+  ```bash
+  docker pull <acct>.dkr.ecr.<region>.amazonaws.com/nemoclaw-finn-base:2026.6.10
+  docker tag  <acct>.dkr.ecr.<region>.amazonaws.com/nemoclaw-finn-base:2026.6.10 \
+              nemoclaw-finn-base:2026.6.10
+  nemoclaw onboard --from ./Dockerfile.finn-2026.6.10 --name finn
+  ```
+
+  Push the image (built for the instance's arch) to ECR once; every new host then pulls instead
+  of rebuilding NemoClaw from source. (Alternatively, edit the `ARG BASE_IMAGE` default in
+  `Dockerfile.finn-2026.6.10` to the ECR URI.)
 
 The host CLI must match too: `setup-finn.sh` preflights `nemoclaw --version` — it aborts on
 anything older than v0.0.68 (no 2026.6.x patch support) and warns-but-continues on anything
