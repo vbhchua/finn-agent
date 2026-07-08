@@ -157,6 +157,19 @@ a rebuild.
   check is right: with the stale pin, every agent turn would request the old model ID from the
   new endpoint. Fix = rewrite the sandbox model config (see setup-finn.sh's `models` layer) and TERM
   the gateway worker; the smoke check then passes unchanged.
+  **2026-07-08 stronger finding: the runtime fix cannot survive a recreate.** The skip condition
+  is `resume && isOpenclawReady(sandbox)` — a mere gateway-reachability probe — so on ANY
+  recreate of a healthy image (e.g. `channels add telegram`) the config-sync step is ALWAYS
+  skipped, the fresh sandbox resets to the image's stock pin, and the smoke check fails again —
+  `channels add` loops forever. Durable fix = **bake the pin into the base image**
+  (`Dockerfile.finn-2026.6.10` step 2c, defaults synced with `.env.sample`); every fresh sandbox
+  is then born smoke-clean.
+- **NemoClaw ≥ v0.0.73 intercepts `openclaw config set` under `nemoclaw exec`** with *"'openclaw
+  config set' cannot modify config inside the sandbox"* (it wants its own rebuild workflow).
+  This repo is verified against v0.0.68 — a host-CLI upgrade changed exec semantics out from
+  under the setup script and broke the search/fetch/mcp layers. Fix = run config writes via
+  direct `docker exec` into the container (setup-finn.sh's `oc()` does this now); the
+  interception lives only in the nemoclaw wrapper, not in openclaw itself.
 
 ## 7. Scheduling agent work on a pinned platform
 
@@ -250,3 +263,40 @@ diagnostics assume the Linux container layout:
   success is visible only in `cron_run_logs` (state SQLite) or the outbound delivery; and a manual
   `cron run` can sit queued ~15–19 min before executing, so trigger-to-finish wall clock
   overstates run cost. Watchers should poll the run-log table, not the log file.
+
+## 12. Gateway device pairing on a headless sandbox (rebuild → `pairing required` lockout)
+
+Validated the hard way on 2026-07-08 (EC2 bring-up; NemoClaw v0.0.73 host CLI).
+
+- **Any rebuild/recreate wipes `devices/paired.json` — and with it every gateway client's
+  trust.** Every gateway-WS CLI call (`agent`, `cron`, `channels status`, `pairing`, the setup
+  layers) then fails with *"pairing required: device is not approved yet"*, and `nemoclaw
+  <name> agent` **silently falls back to the EMBEDDED agent** — a passing PONG proves nothing
+  about the gateway path (§1's lesson again). `gateway.controlUi.dangerouslyDisableDeviceAuth`
+  does NOT help: the gateway honors it only for Control-UI connections (`isControlUi` in the
+  connect handler), never for CLI clients — don't weaken it.
+- **The sanctioned approver is nemoclaw-start's auto-pair watcher** (the long-lived in-container
+  `python3 -` child). It polls `openclaw devices list` gateway-pinned and approves allowlisted
+  pending requests via OpenClaw's local on-disk fallback. But its own list call is a gateway
+  client too — with NOTHING paired it is itself rejected, so after a rebuild it can't bootstrap
+  the first device. Once one CLI device is paired it works again (including scope upgrades).
+- **`openclaw devices approve <id>` cannot converge for a FIRST-TIME pairing.** Each invocation
+  makes two gateway connects (list-context + approve) requesting different scope sets, and each
+  connect REPLACES the pending request with a fresh requestId — the id you pass is always stale,
+  and the same-device-replacement rescue path requires an already-paired device. Bootstrap by
+  calling the implementation directly on the on-disk store instead:
+  `tools/approve-cli-device.sh` (node → OpenClaw's `approveDevicePairing()` with
+  `callerScopes: [operator.admin]`, reading the live pending id in-process).
+- **`~/.nemoclaw/rebuild-backups` strip private keys** (`privateKeyPem` is a 23-char stub in
+  every backup), so a workspace **restore plants a corrupt device identity**. OpenClaw's
+  identity self-check then silently generates a THROWAWAY identity per CLI invocation:
+  `devices/pending.json` floods with one-off deviceIds (~1 per poll), no approval can ever
+  stick, and the watcher — once unblocked — will mass-approve the junk. Fix = delete
+  `identity/device.json` + `identity/device-auth.json`, let the next CLI run mint a fresh
+  persistent identity, approve that one, then `openclaw devices remove` the junk devices.
+- **Don't chmod `.openclaw` while debugging.** nemoclaw's exec wrapper enforces
+  `.openclaw`=2770 setgid / `openclaw.json`=660 and runs a perms normalizer after every exec;
+  if the in-container helper (`/usr/local/lib/nemoclaw/normalize_mutable_config_perms.py`) is
+  missing — the case when the image was built under an older nemoclaw — **every `nemoclaw exec`
+  exits 1 even though the inner command succeeded**, which silently kills `set -e` setup scripts
+  mid-run. Copy the helper in from `~/.nemoclaw/source/scripts/lib/` or keep the modes intact.

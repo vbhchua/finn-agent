@@ -97,6 +97,30 @@ RUN node --experimental-strip-types /src/lib/messaging/applier/build/messaging-b
  && node --experimental-strip-types /src/lib/messaging/applier/build/messaging-build-applier.mts --agent openclaw --phase agent-install \
  && node --experimental-strip-types /src/lib/messaging/applier/build/messaging-build-applier.mts --agent openclaw --phase post-agent-install
 
+# 2c) Bake the inference model pin. The stock base config pins the NVIDIA demo
+#     model; nemoclaw's recreate path (channels add / rebuild) SKIPS the openclaw
+#     config-sync step whenever the fresh sandbox's gateway is reachable
+#     (isOpenclawReady = fetchGatewayAuthTokenFromSandbox), so nothing rewrites the
+#     pin and the compatible-endpoint smoke check fails hard with
+#     "agents.defaults.model.primary is '…'; expected 'inference/<model>'" — which
+#     aborts `channels add telegram` in a loop (LEARNINGS §6). Baking the pin makes
+#     every fresh sandbox born smoke-clean. Keep these defaults in sync with
+#     .env.sample / setup-finn.sh layer_models (which stays the runtime re-apply path).
+ARG INFERENCE_MODEL_ID=kimi-k2.6
+ARG INFERENCE_CONTEXT_WINDOW=262144
+ARG INFERENCE_MAX_TOKENS=8192
+RUN python3 -c "import json, os; \
+p=os.path.expanduser('~/.openclaw/openclaw.json'); d=json.load(open(p)); \
+mid=os.environ['INFERENCE_MODEL_ID']; \
+d['agents']['defaults'].setdefault('model', {})['primary']='inference/'+mid; \
+ms=d['models']['providers']['inference'].setdefault('models', []); \
+any(m.get('id')==mid for m in ms) or ms.append({'id': mid, 'name': 'inference/'+mid, \
+'reasoning': False, 'input': ['text'], \
+'cost': {'input': 0, 'output': 0, 'cacheRead': 0, 'cacheWrite': 0}, \
+'contextWindow': int(os.environ['INFERENCE_CONTEXT_WINDOW']), \
+'maxTokens': int(os.environ['INFERENCE_MAX_TOKENS'])}); \
+json.dump(d, open(p,'w'), indent=2)"
+
 # 3) Restore the runtime proxy (proxyUrl left as the baked value so external egress
 #    is still proxied + policy-governed) and keep loopbackMode=gateway-only (the
 #    required fix on this macOS host-process topology; it does NOT affect external

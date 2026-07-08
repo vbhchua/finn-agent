@@ -80,7 +80,11 @@ echo "==> Layers:    ${ONLY:+ONLY='$ONLY' }${SKIP:+SKIP='$SKIP' }(each also skip
 
 # ============================ shared helpers ============================
 # nemoclaw exec as the sandbox user (config gets/sets go through this).
-oc() { nemoclaw "$SANDBOX" exec -- bash -c "HOME=/sandbox $*" 2>/dev/null; }
+# NemoClaw >= v0.0.73 intercepts `openclaw config set` under `nemoclaw exec`
+# ("cannot modify config inside the sandbox" + a rebuild nudge), which broke the
+# search/fetch/mcp layers. Go straight to the container instead — same uid/HOME,
+# re-resolving the container name per call since it changes on every rebuild.
+oc() { find_container || return 1; docker exec -i -u 998 -e HOME=/sandbox "$CONTAINER" bash -c "$*" 2>/dev/null; }
 
 CONTAINER=""
 find_container() {  # re-resolve — the name/UUID changes on every rebuild

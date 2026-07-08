@@ -34,6 +34,10 @@ gotchas (symptom → root cause → fix): `docs/LEARNINGS.md`. Build log: `PROGR
 - A `--from` onboard image needs the vendored patch
   `patches/nemoclaw-2026.6.x-chat-send-runid.patch` (upstream NemoClaw ≤ v0.0.68 only covers
   OpenClaw ≤ 2026.6.8). (§8)
+- **Any rebuild wipes gateway device pairing** — every `openclaw` CLI call then fails with
+  `pairing required` and `nemoclaw finn agent` silently falls back to the embedded path.
+  Re-bootstrap with `tools/approve-cli-device.sh`; never trust a PONG that follows an
+  `EMBEDDED FALLBACK` line. (§12)
 
 ## Verifying a change
 
