@@ -376,7 +376,7 @@ print('\n'.join(j.get('id','') for j in d.get('jobs',[]) if j.get('name')=='$1')
     printf '%s' "$out" | grep -q '"id":' && echo "    ok" || { echo "    ERROR registering $1:" >&2; printf '%s\n' "$out" | tail -4 >&2; }; }
   local DELIVER="--announce --channel telegram"; [ -n "$CHAT_ID" ] && DELIVER="$DELIVER --to $CHAT_ID"
   add_job finn-conf-radar    "0 9 * * *"  "--session-key agent:main:conf-radar $DELIVER"        conf-radar
-  add_job finn-topic-trends  "30 9 * * *" "--session-key agent:main:topic-trends --no-deliver"  topic-trends
+  add_job finn-topic-trends  "30 9 * * *" "--session-key agent:main:topic-trends $DELIVER"       topic-trends
   add_job finn-weekly-digest "0 10 * * 1" "--session-key agent:main:weekly-digest $DELIVER"     weekly-digest
   echo "==> Registered cron jobs:"; gw cron list 2>/dev/null | grep -iE 'finn-(conf-radar|topic-trends|weekly-digest)|^ID|Schedule' | head -10 || true
   if [ "${DRYRUN:-0}" = 1 ]; then
