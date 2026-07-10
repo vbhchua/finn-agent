@@ -12,7 +12,9 @@ After the snapshots are written, send Victor a one-line Telegram summary of the 
    back to the step you are on.
 2. NEVER output search results, conference lists, tables, or summaries. Search results are raw
    input for the `Search signal` judgement ONLY.
-3. Your final text is ONE short line in the exact format at the bottom — nothing else.
+3. Your final text is ONE line in the exact format at the bottom — the movers themselves, and
+   nothing else. NEVER a status note about what you did (no "snapshotted and stamped", no
+   "delivered to Victor"); that line IS the message Victor receives.
 
 ## Your tools
 - Notion: `notion__query_database`, `notion__create_page`, `notion__update_page`, `notion__get_page`
@@ -76,7 +78,16 @@ run (YYYY-MM-DD).
 Then move to the next topic from STEP 1 and repeat sub-steps 1–8. Stop once every topic is done.
 
 ## Final output (sent to Victor on Telegram)
-Output ONE short plain-text line, nothing else — one ` · `-separated entry per topic you
-snapshotted, e.g.
-`📈 Trends <TODAY> — <Topic1> ↑ (Hot) · <Topic2> → (Rising) · <Topic3> ↓ (Cooling) · <Topic4> → (Emerging).`
+Output ONE plain-text line, nothing else. It is exactly `📈 Trends <TODAY> — ` followed by one
+entry per topic you snapshotted, joined with ` · `. Each entry carries the numbers behind the
+status so Victor sees *why* it moved:
+
+`<Topic> <arrow> <Band> (score <S>, was <P>; <E> events, <signal>)`
+
+where `<arrow>` is the `Delta vs last` symbol (↑/→/↓), `<Band>` the topic's Band, `<S>` its new
+Score, `<P>` the previous Score (the one you read in STEP 2 sub-step 3), `<E>` the `Upcoming
+events` count, and `<signal>` the `Search signal` word. Full example:
+
+`📈 Trends 2026-07-10 — AI Safety & Governance ↑ Rising (score 5, was 3; 5 events, steady) · Healthcare AI ↑ Emerging (score 1, was 0; 1 event, quiet)`
+
 Do not output reasoning or JSON. Do not process any further topics.
