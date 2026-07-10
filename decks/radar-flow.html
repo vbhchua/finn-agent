@@ -247,14 +247,14 @@ const DATA = {
     ],
     stages:[
       {ico:'⏰',h:'OpenClaw gateway cron',sub:'3 jobs · native on 2026.6.10',status:'ok',count:'3 jobs',
-       li:['finn-conf-radar — daily 09:00 SGT','finn-topic-trends — daily 09:30 (2-topic rotation)','finn-weekly-digest — <b>Mon 10:00</b> (staggered)'],
+       li:['finn-conf-radar — daily 09:00 SGT','finn-topic-trends — daily 09:30 (4-topic rotation)','finn-weekly-digest — <b>Mon 10:00</b> (staggered)'],
        detail:'The fix that shipped was neither state on the left: <b>the pin itself moved</b>. NemoClaw was bumped to v0.0.68 and a vendored, fail-closed 1-line patch let the OpenClaw <b>2026.6.10</b> image build — on 2026.6.x scheduled cron runs are tool-primed natively, so gateway cron is back as the scheduler with no host timers. The digest was staggered to Mon 10:00 after colliding with the 09:00 radar run.'},
       {ico:'🔎',h:'Due-selection in Notion',sub:'server-side date filter',status:'ok',fan:true,
        li:['<code>Status = Upcoming</code>','<code>AND Next check due ≤ today</code>','tier × proximity sets the cadence'],
        detail:'Kept from the proposal: Notion answers "what is due today" with a server-side filter on <code>Next check due</code>, so the weak model does minimal date math and only due events are touched.'},
-      {ico:'🤖',h:'1 agent run — 1 event',sub:'cron-fired · fully primed',status:'ok',
-       li:['full bootstrap → tools primed','one rigid checklist per run'],
-       detail:'One-event-per-run was <b>kept deliberately</b> — not because cron can\'t drive tools any more, but because the 120B executor reliably finishes a single rigid checklist. Erasing that scaffold is a <b>cost-per-completed-task</b> decision for a bigger model, not an architecture necessity. (Since 2026-07-05 the executor is <b>Kimi K2.6</b> via the compatible endpoint — the scaffold is retained pending that re-test.)'},
+      {ico:'🤖',h:'1 agent run — drains the due queue',sub:'cron-fired · fully primed · ≤8 events',status:'ok',
+       li:['full bootstrap → tools primed','loops per item under a budget guard'],
+       detail:'One-event-per-run was kept while the <b>120B executor</b> could only finish a single rigid checklist — an executor limit, never an architecture necessity. <b>Re-tested on Kimi K2.6 (2026-07-10) and retired:</b> a 5-event batch ran <b>85 s (~17 s/event)</b> against <b>~57 s</b> for one cold single, doing 5 distinct research passes and 5 Notion writes, verified by effects. The loop now drains every event with <code>Next check due ≤ today</code>, oldest-first, <b>capped at 8/run</b> (well inside the 900 s budget). It queries 9 and processes 8, so a 9th row means the backlog did not clear → <b>⚠️ appended to the Telegram line</b>. Throughput is demand-driven; the schedule is unchanged, so no extra endpoint load.'},
       {ico:'🛠',h:'Checklist + guardrails',sub:'4 calls · cadence writes only',status:'ok',count:'4 calls',
        li:['query → search → fetch → update','writes ONLY <code>Last checked</code> · <code>Next check due</code> · <code>Latest change</code>','regional (non-SG) events → speakers/themes only'],
        detail:'The prompts are frontier-authored for the weak executor (literal cadence table, exact property names) and carry the <b>ownership matrix</b>: finn\'s loops write facts + cadence; every decision column stays human. Scope is Singapore-first — regional events feed speaker rosters + theme trends, never travel actions.'},
@@ -343,7 +343,7 @@ function play(){
 }
 
 document.getElementById('siblings').innerHTML=
-  `<b>The other two loops (same walls, same fixes):</b> &nbsp;• <b>topic-trends</b> (daily 09:30, silent) got the same small-batch treatment — sharded 2026-07-07 to <b>two topics per run</b> rotating on a <code>Last snapshot</code> cursor, after a load test at shared-endpoint peak (~3 gen tok/s) showed the all-topics run couldn't fit its 900s job budget. &nbsp;• <b>weekly-digest</b> (<b>Mon 10:00</b> — staggered off the 09:00 radar collision) is a simple read-and-compose single run. &nbsp;<b>Root cause was two independent walls:</b> the <b>2026.6.10 upgrade</b> fixed the <i>plumbing</i> (scheduled runs are tool-primed) — exactly the "newer OpenClaw" path; the <b>small-batch decomposition</b> fixed the <i>weak executor</i> (Nemotron finishes) and was <b>kept even after the upgrade</b>.`;
+  `<b>The other two loops (same walls, same fixes):</b> &nbsp;• <b>topic-trends</b> (daily 09:30) got the same small-batch treatment — sharded 2026-07-07 to two topics per run on a <code>Last snapshot</code> cursor, after a load test at shared-endpoint peak (~3 gen tok/s) showed the all-topics run couldn't fit its 900s job budget. <b>Since 2026-07-10: 4 topics/run</b> (15 topics → a 3.8-day rotation, down from 7.5) and it now <b>delivers its summary to Telegram</b> instead of writing snapshots silently. &nbsp;• <b>weekly-digest</b> (<b>Mon 10:00</b> — staggered off the 09:00 radar collision) is a simple read-and-compose single run. &nbsp;<b>Root cause was two independent walls:</b> the <b>2026.6.10 upgrade</b> fixed the <i>plumbing</i> (scheduled runs are tool-primed) — exactly the "newer OpenClaw" path; the <b>small-batch decomposition</b> fixed the <i>weak executor</i>, and once the executor changed, <b>measurement retired it</b> (2026-07-10).`;
 
 render();
 </script>
