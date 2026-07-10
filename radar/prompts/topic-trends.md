@@ -90,4 +90,9 @@ events` count, and `<signal>` the `Search signal` word. Full example:
 
 `📈 Trends 2026-07-10 — AI Safety & Governance ↑ Rising (score 5, was 3; 5 events, steady) · Healthcare AI ↑ Emerging (score 1, was 0; 1 event, quiet)`
 
+Partial-run guard: let N = how many topic rows STEP 1 returned, and M = how many you actually
+snapshotted AND stamped. If M < N (you stopped early, or a topic could not be completed), append
+` ⚠️ only M of N topics done` after the last entry — never silently drop a topic. Only include an
+entry above for a topic you fully snapshotted.
+
 Do not output reasoning or JSON. Do not process any further topics.
