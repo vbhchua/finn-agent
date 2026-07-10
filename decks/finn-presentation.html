@@ -216,7 +216,7 @@
               <span class="accent">NemoClaw / OpenShell</span> stack — reached over Telegram,
               powered by <b>Kimi K2.6</b> over a host-side OpenAI-compatible endpoint.</div>
             <div class="meta r"><code>nemoclaw onboard --from</code> the 2026.6.10 image · nemoclaw v0.0.68 ·
-              OpenClaw 2026.6.10 · Kimi K2.6 (compatible endpoint · OpenRouter fallback) · 2026-06-26 · rev 2026-07-08</div>
+              OpenClaw 2026.6.10 · Kimi K2.6 (compatible endpoint · OpenRouter fallback) · 2026-06-26 · rev 2026-07-10</div>
           </div>
           <div class="glance r">
             <div class="stat"><div class="n">0</div><div class="l">secrets in the image — <b>all keys injected at runtime</b></div></div>
@@ -369,19 +369,19 @@
         </div>
         <p class="r" style="margin-bottom:16px">A scheduled layer that researches <b>Singapore</b> AI events (regional APAC = a speakers/trends watch), keeps <b>Notion as the source of truth</b>, and pushes a weekly digest — built on <span class="accent">state-indirection + producer→consumer chaining</span>, with a strict <b>ownership matrix</b>: loops write facts + cadence only; decisions stay human.</p>
         <div class="pchain r">
-          <div class="pnode"><div class="pk">Schedule</div><h4>OpenClaw cron</h4><p>native on 2026.6.x — radar daily 09:00 · trends daily 09:30 (2-topic rotation) · digest Mon 10:00</p></div>
+          <div class="pnode"><div class="pk">Schedule</div><h4>OpenClaw cron</h4><p>native on 2026.6.x — radar daily 09:00 · trends daily 09:30 (4-topic rotation) · digest Mon 10:00</p></div>
           <div class="parrow">→</div>
-          <div class="pnode"><div class="pk">Producer</div><h4>Conf radar</h4><p>one event / run; writes cadence + changes</p></div>
+          <div class="pnode"><div class="pk">Producer</div><h4>Conf radar</h4><p>drains the due queue, ≤8 events / run; writes cadence + changes</p></div>
           <div class="parrow">→</div>
           <div class="pnode src"><div class="pk">Store</div><h4>Notion</h4><p>durable, human-curatable source of truth</p></div>
           <div class="parrow">→</div>
           <div class="pnode"><div class="pk">Consumer</div><h4>Weekly digest</h4><p>reads what producers wrote</p></div>
           <div class="parrow">→</div>
-          <div class="pnode"><div class="pk">Deliver</div><h4>Telegram</h4><p>one curated message</p></div>
+          <div class="pnode"><div class="pk">Deliver</div><h4>Telegram</h4><p>digest + trends summary · ⚠️ backlog alert</p></div>
         </div>
         <div class="blocks r">
           <div class="block"><div class="bt">BLOCKER 1 — collapsed by the upgrade</div><p>Pinned cron couldn't drive tools → <b>moved the pin</b>: OpenClaw 2026.6.10 (via a vendored, fail-closed 1-line NemoClaw patch) restored native scheduled tool-calling. All three loops <b>run live in the gateway</b> — heartbeats + digest observed over Telegram.</p></div>
-          <div class="block"><div class="bt">BLOCKER 2 — kept, by choice</div><p>The 120B executor can't loop a list → prompts stay <b>one item per run</b> with literal cadence tables (<b>strong model authors, weak model executes</b>). Erasing that scaffold is a <b>cost-per-completed-task</b> question — a bigger model may buy back the engineering.</p></div>
+          <div class="block"><div class="bt">BLOCKER 2 — retired by measurement</div><p>The 120B executor couldn't loop a list → prompts were <b>one item per run</b> (<b>strong model authors, weak model executes</b>). Measured on Kimi K2.6: a 5-event batch ran <b>85 s (~17 s/event)</b> vs <b>~57 s</b> for one cold single — 5 distinct research passes, 5 Notion writes, <b>verified by effects</b>. Scaffold dropped 2026-07-10; the loops now drain the due queue. <b>A bigger model bought back the engineering.</b></p></div>
         </div>
       </section>
 
@@ -410,7 +410,7 @@
         </div>
         <div class="steps-list">
           <div class="nstep r"><div class="num">1</div><div><div class="nt">Survive host reboots</div><div class="nd">A Mac reboot once took the host gateway down for days unnoticed; the host is now an EC2 instance — add boot auto-start (systemd) + an is-finn-alive heartbeat so an outage pages instead of hides.</div></div></div>
-          <div class="nstep r"><div class="num">2</div><div><div class="nt">Finish the model trade</div><div class="nd">The primary moved to <b>Kimi K2.6</b> (compatible endpoint, 2026-07-05); the one-item-per-run scaffold built for the 120B executor is still in place — re-price per <b>cost-per-completed-task</b> and drop the scaffolding the stronger model buys back.</div></div></div>
+          <div class="nstep r"><div class="num">2</div><div><div class="nt">Price the trade, not just time it</div><div class="nd">The batch is proven on <b>latency</b> (~17 s/event vs ~57 s single) and the scaffold is gone — but <b>cost-per-completed-task</b> is still un-measured. Instrument tokens and spend per completed check across executors, so the model choice carries a number instead of a feel.</div></div></div>
           <div class="nstep r"><div class="num">3</div><div><div class="nt">Teach the bootstrap the new schema</div><div class="nd">The Notion hub grew three pillars (This Quarter · People CRM · Accounts) host-side; extend <code>notion-bootstrap.mjs</code> so a from-scratch rebuild recreates them.</div></div></div>
           <div class="nstep opt r"><div class="num">4</div><div><div class="nt">Optional hardening</div><div class="nd">Self-host Firecrawl to regain read-egress control; keep add-ons read-only for higher-trust deployments.</div></div></div>
         </div>
