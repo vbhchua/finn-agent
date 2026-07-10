@@ -186,16 +186,23 @@
   .hint{position:fixed;bottom:26px;right:26px;font-size:12px;color:var(--muted);z-index:55;opacity:.8}
 
   /* print → 16:9 PDF */
+  /* ⌘P → Save as PDF gives one slide per page at 16:9. No dialog settings to change:
+     @page fixes the paper, print-color-adjust keeps the dark cards, and #deck must
+     drop overflow:hidden or only slide 1 survives. */
   @media print{
     @page{size:1280px 720px;margin:0}
-    body{background:#fff;overflow:visible}
+    html,body{height:auto;overflow:visible;background:#fff;
+      -webkit-print-color-adjust:exact;print-color-adjust:exact}
     #bar,#nav,.hint{display:none!important}
-    #stage{position:static}
-    #deck{transform:none!important;width:1280px;height:720px;box-shadow:none;border-radius:0}
-    #track{display:block;width:auto;transform:none!important}
-    .slide{page-break-after:always;height:720px;width:1280px}
+    #stage{position:static;display:block;height:auto}
+    #deck{width:1280px;height:auto;overflow:visible;transform:none!important;
+      box-shadow:none;border-radius:0}
+    #track{display:block;width:auto;height:auto;transform:none!important;transition:none!important}
+    .slide{width:1280px;min-width:0;height:720px;overflow:hidden;
+      break-inside:avoid;page-break-inside:avoid;break-after:page;page-break-after:always}
+    .slide:last-of-type{break-after:auto;page-break-after:auto}
     .r{opacity:1!important;transform:none!important}
-    .step{opacity:1}
+    .step{opacity:1!important}
   }
 </style>
 </head>
