@@ -129,13 +129,15 @@
     <h1><span class="g">finn</span> · Conference Radar — <span class="g">diagnosis · proposal · shipped</span></h1>
     <p class="sub">Feature 4 of finn's proactive layer: re-check the <b>upcoming Singapore AI events</b> (9 at diagnosis time) in Notion, update each, and ping Victor on Telegram when something material changes (new keynote / NVIDIA confirmed / date or venue move). Click any node for detail. Toggle the three states.</p>
     <div style="margin:16px 0 0;padding:12px 16px;border:1px solid #cfe3a8;border-radius:12px;background:var(--green-l,#eef6e0);font-size:13.5px;line-height:1.5;color:#3c5d00">
-      <b>OUTCOME — what actually shipped (2026-06-27 → 2026-07-07):</b> neither state below is the live design —
+      <b>OUTCOME — what actually shipped (2026-06-27 → 2026-07-10):</b> neither state below is the live design —
       <b>the pin itself moved</b>. OpenClaw <b>2026.6.10</b> (enabled by a vendored, fail-closed 1-line NemoClaw patch)
       restored native in-gateway scheduled tool-calling, so the three loops run live as <b>OpenClaw cron jobs</b>:
       conf-radar daily 09:00 SGT · topic-trends <b>daily 09:30 — two topics per run</b> · weekly digest <b>Mon 10:00</b>
       (staggered off the 09:00 collision). Small-batch-per-run was <b>kept deliberately</b> for the 120B executor —
       and extended on 2026-07-07, when a live load test at shared-endpoint peak (~3 gen tok/s vs ~67 off-peak) showed
-      the all-topics trends run couldn't fit its 900s job budget: it now rotates the watchlist two topics at a time.
+      the all-topics trends run couldn't fit its 900s job budget: it rotated the watchlist two topics at a time.
+      On <b>2026-07-10</b>, after the model swap to Kimi K2.6, the small-batch scaffold was <b>retired by measurement</b>:
+      the radar now drains the due queue (<b>≤8 events/run</b>) and trends rotates <b>4 topics/run</b>.
       Toggle <b>✅ Shipped</b> for the live design; the two 2026-06-25 states are preserved as the diagnosis + proposal
       that led there.
     </div>
@@ -163,7 +165,7 @@
     <span><i style="background:var(--green)"></i> works / tools fire</span>
     <span><i style="background:var(--bad)"></i> break — flow stops here</span>
     <span><i style="background:var(--warn)"></i> warning — model-capability limit</span>
-    <span style="margin-left:auto">finn · diagnosis 2026-06-25 (OpenClaw 2026.5.27, pinned) · shipped on OpenClaw 2026.6.10 · updated 2026-07-06</span>
+    <span style="margin-left:auto">finn · diagnosis 2026-06-25 (OpenClaw 2026.5.27, pinned) · shipped on OpenClaw 2026.6.10 · updated 2026-07-12</span>
   </footer>
 </div>
 
@@ -193,13 +195,13 @@ const DATA = {
        detail:'All scheduling lives <b>inside</b> the OpenClaw gateway. Three cron jobs were registered via <code>gw-cron.sh cron add</code> (nsenter into the gateway netns, operator.admin granted on-disk). The radar job is <code>finn-conf-radar</code>, daily 09:00 SGT.'},
       {ico:'🗂',h:'1 scheduled job',sub:'finn-conf-radar (daily 09:00 SGT)',status:'ok',
        li:['<code>--session-key agent:main:conf-radar</code>','<code>--message &lt;9-event prompt&gt;</code>','fires a scheduled <b>agentTurn</b>'],
-       detail:'The cron job carries the prompt as <code>--message</code> and fires a scheduled <b>agentTurn</b> on the main agent. This is where the platform wall is hit.'},
+       detail:'The cron job carries the prompt as <code>--message</code> and fires a scheduled <b>agentTurn</b> on the main agent. This scheduled path is where tool-calling fails.'},
       {ico:'🤖',h:'1 agent turn — loop ×9',sub:'Nemotron · main agent',status:'break',badge:'BREAK ① context stripped',
        li:['must loop <b>all 9</b> upcoming events','per event: query→search→fetch→update','one turn does everything'],
        detail:'<b>BREAK ①.</b> On OpenClaw 2026.5.27 a scheduled cron agentTurn runs <b>context-stripped</b> — no workspace bootstrap (<code>AGENTS.md</code> / <code>TOOLS.md</code>). Nemotron is never tool-primed, so it emits <b>zero tool calls</b> and just echoes the prompt template. The misleading <code>delivered:true</code> hides it — verified by checking real Notion writes (there were none).'},
       {ico:'🛠',h:'Tools',sub:'never reached',status:'dead',badge:'BREAK ② loop too complex',
        li:['<code>notion__query_database</code>','<code>notion__update_page</code>','<code>web_search</code> / <code>web_fetch</code>'],
-       detail:'<b>BREAK ②</b> (a second, independent wall). Even via the working agent path, a 9-event loop overwhelms the weak Nemotron executor: ~10 reads/searches but <b>0 <code>update_page</code></b>, garbled output. Two stacked failures masking each other.'},
+       detail:'<b>BREAK ②</b> (a second, independent failure). Even via the working agent path, a 9-event loop is more than the Nemotron executor can finish: ~10 reads/searches but <b>0 <code>update_page</code></b>, garbled output. Two stacked failures masking each other.'},
       {ico:'📤',h:'Outputs',sub:'nothing real',status:'dead',
        li:['Notion writes: <b>0</b> ❌','Telegram: <code>delivered:true</code> but empty','→ jobs <b>removed</b> (Telegram spam)'],
        detail:'Net: no Notion updates, no useful Telegram alert. The three gateway cron jobs were <b>removed</b> to stop them spamming Telegram with template echoes.'},
@@ -225,7 +227,7 @@ const DATA = {
        detail:'The daily dispatch first asks Notion which events are actually <b>due</b> today (adaptive cadence keys off <code>Next check due</code>). Only those fire — typically a few of the 9, not all of them. This is plain host-side logic, not the weak model.'},
       {ico:'🤖',h:'N agent runs — 1 event each',sub:'openclaw agent --agent main',status:'ok',fan:true,
        li:['<b>full bootstrap</b> → tools primed','one fresh run per due event'],
-       detail:'For <b>each</b> due event the host fires a fresh <code>openclaw agent --agent main</code> (via <code>run-job.sh</code>). That path injects the full <code>AGENTS.md</code>/<code>TOOLS.md</code> priming, so Nemotron drives tools reliably — <b>proven</b>. Many small runs replace one impossible loop.'},
+       detail:'For <b>each</b> due event the host fires a fresh <code>openclaw agent --agent main</code> (via <code>run-job.sh</code>). That path injects the full <code>AGENTS.md</code>/<code>TOOLS.md</code> priming, so Nemotron drives tools reliably — <b>verified</b>. Many small runs replace one loop the executor could not finish.'},
       {ico:'🛠',h:'Rigid 1-event checklist',sub:'inside each run',status:'ok',count:'4 calls',
        li:['1× <code>notion__query_database</code>','1× <code>web_search</code>','1× <code>web_fetch</code>','1× <code>notion__update_page</code>'],
        detail:'Single-event scope = a checklist Nemotron can finish: pick the one due event → research it → write it back. <b>Proven working:</b> <i>AI for Education Conference 2026</i> → <code>Last checked = 2026-06-25</code>, <code>Next check due = 2026-07-09</code> (+14d).'},
@@ -240,9 +242,9 @@ const DATA = {
     metrics:[
       {k:'Scheduler',v:'Gateway cron',n:'native on 2026.6.10',good:true},
       {k:'Radar cron jobs',v:'3',n:'of 3 registered',good:true},
-      {k:'Events / run',v:'1',n:'kept from the proposal',good:true},
+      {k:'Events / run',v:'≤8',n:'due-queue drain (2026-07-10)',good:true},
       {k:'Tools fire?',v:'Yes',n:'cron is tool-primed',good:true},
-      {k:'Executor finishes?',v:'Yes',n:'single-event checklist',good:true},
+      {k:'Executor finishes?',v:'Yes',n:'batched loop, verified',good:true},
       {k:'Writes',v:'Cadence only',n:'ownership matrix',good:true},
     ],
     stages:[
@@ -257,7 +259,7 @@ const DATA = {
        detail:'One-event-per-run was kept while the <b>120B executor</b> could only finish a single rigid checklist — an executor limit, never an architecture necessity. <b>Re-tested on Kimi K2.6 (2026-07-10) and retired:</b> a 5-event batch ran <b>85 s (~17 s/event)</b> against <b>~57 s</b> for one cold single, doing 5 distinct research passes and 5 Notion writes, verified by effects. The loop now drains every event with <code>Next check due ≤ today</code>, oldest-first, <b>capped at 8/run</b> (well inside the 900 s budget). It queries 9 and processes 8, so a 9th row means the backlog did not clear → <b>⚠️ appended to the Telegram line</b>. Throughput is demand-driven; the schedule is unchanged, so no extra endpoint load.'},
       {ico:'🛠',h:'Checklist + guardrails',sub:'4 calls · cadence writes only',status:'ok',count:'4 calls',
        li:['query → search → fetch → update','writes ONLY <code>Last checked</code> · <code>Next check due</code> · <code>Latest change</code>','regional (non-SG) events → speakers/themes only'],
-       detail:'The prompts are frontier-authored for the weak executor (literal cadence table, exact property names) and carry the <b>ownership matrix</b>: finn\'s loops write facts + cadence; every decision column stays human. Scope is Singapore-first — regional events feed speaker rosters + theme trends, never travel actions.'},
+       detail:'The prompts were authored by a stronger model for the weak executor (literal cadence table, exact property names) and carry the <b>ownership matrix</b>: finn\'s loops write facts + cadence; every decision column stays human. Scope is Singapore-first — regional events feed speaker rosters + theme trends, never travel actions.'},
       {ico:'📤',h:'Outputs',sub:'live over Telegram',status:'ok',
        li:['Notion cadence writes ✓','<code>🟢</code>/<code>🔔</code> heartbeats · Mon digest ✓','observed end-to-end 2026-06-29/30'],
        detail:'Radar heartbeats and the Monday digest are confirmed over Telegram — the "delivered:true but nothing real" failure mode from the diagnosis is gone; verification is by real Notion writes and received messages, never the delivery flag.'},
@@ -304,8 +306,8 @@ const CMP=[
   ['Radar entries','1 cron job','1 dispatch timer (+ trends, digest)','3 cron jobs (radar · trends · digest)'],
   ['Invocation','scheduled agentTurn (--message)','openclaw agent --agent main (per event)','scheduled run — tool-primed natively'],
   ['Bootstrap / TOOLS.md','stripped → no priming','full → tools primed','full — native on 2026.6.x'],
-  ['Events per run','9 (one loop)','1 (single-event checklist)','1 — kept deliberately'],
-  ['Runs per day','1','0–9 (only due events)','1 daily + 2 weekly'],
+  ['Events per run','9 (one loop)','1 (single-event checklist)','≤8 — due-queue drain (2026-07-10)'],
+  ['Runs per day','1','0–9 (only due events)','2 daily + 1 weekly'],
   ['Tools actually fire','No','Yes','Yes'],
   ['Executor completes','No (Nemotron)','Yes (proven)','Yes (live: heartbeats + digest)'],
 ];

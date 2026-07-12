@@ -223,7 +223,7 @@
               <span class="accent">NemoClaw / OpenShell</span> stack — reached over Telegram,
               powered by <b>Kimi K2.6</b> over a host-side OpenAI-compatible endpoint.</div>
             <div class="meta r"><code>nemoclaw onboard --from</code> the 2026.6.10 image · nemoclaw v0.0.68 ·
-              OpenClaw 2026.6.10 · Kimi K2.6 (compatible endpoint · OpenRouter fallback) · 2026-06-26 · rev 2026-07-10</div>
+              OpenClaw 2026.6.10 · Kimi K2.6 (compatible endpoint · OpenRouter fallback) · 2026-06-26 · rev 2026-07-12</div>
           </div>
           <div class="glance r">
             <div class="stat"><div class="n">0</div><div class="l">secrets in the image — <b>all keys injected at runtime</b></div></div>
@@ -255,9 +255,9 @@
           <div class="card r"><span class="pill ok">LIVE</span><div class="ic">🗂️</div>
             <h3>Notion connector</h3>
             <p>Search + read pages/DBs via MCP; write opt-in. Sees <b>only pages shared</b> with the integration.</p></div>
-          <div class="card r"><span class="pill wip">IN PROGRESS</span><div class="ic">📡</div>
+          <div class="card r"><span class="pill ok">LIVE</span><div class="ic">📡</div>
             <h3>Event intelligence</h3>
-            <p>Proactive <b>conference radar</b> + <b>topic trends</b> + a <b>weekly digest</b> over a Notion knowledge base.</p></div>
+            <p>Proactive <b>conference radar</b> + <b>topic trends</b> + a <b>weekly digest</b> over a Notion knowledge base — three scheduled loops.</p></div>
           <div class="card r"><span class="pill ok">LIVE</span><div class="ic">🧩</div>
             <h3>Zero-dep MCP tools</h3>
             <p>Our own auditable servers (raw stdio + <code>fetch</code>) — runtime add-ons, <b>not</b> baked into the image.</p></div>
@@ -273,7 +273,7 @@
         </div>
         <div class="arch">
           <div class="col r">
-            <div class="ctitle">Host (macOS)</div>
+            <div class="ctitle">Host (Linux EC2)</div>
             <div class="stackbox">
               <div class="node">openshell-gateway <small>host process</small></div>
               <div class="node">nemoclaw CLI <small>manage / onboard</small></div>
@@ -323,7 +323,7 @@
           <div class="panelbox delta r">
             <h3>The one deliberate delta</h3>
             <ul class="chklist dot">
-              <li><b>Firecrawl <code>web_fetch</code></b>: the sandbox still talks to <b>one allowlisted host</b> (<code>api.firecrawl.dev</code>) — Firecrawl's cloud fetches the page on finn's behalf. Net effect: the agent reads <b>any public URL</b> without widening the firewall — the whole point for a research agent.</li>
+              <li><b>Firecrawl <code>web_fetch</code></b>: the sandbox still talks to <b>one allowlisted host</b> (<code>api.firecrawl.dev</code>) — Firecrawl's cloud fetches the page on finn's behalf. Net effect: the agent reads <b>any public URL</b> without widening the firewall.</li>
               <li>Add-ons are <b>read-only by default</b>; writes (calendar, Notion) are an explicit opt-in.</li>
               <li>Bounded by: cloud fetcher can't reach the sandbox's internal network; read-only, research-only scope.</li>
             </ul>
@@ -369,12 +369,12 @@
       <!-- 6 · PROACTIVE LAYER -->
       <section class="slide">
         <div class="head r">
-          <div class="eyebrow">The flagship feature</div>
+          <div class="eyebrow">The proactive layer</div>
           <h2>Proactive event intelligence
             <span class="statusbanner">✅ live — 3 loops</span></h2>
           <div class="rule"></div>
         </div>
-        <p class="r" style="margin-bottom:16px">A scheduled layer that researches <b>Singapore</b> AI events (regional APAC = a speakers/trends watch), keeps <b>Notion as the source of truth</b>, and pushes a weekly digest — built on <span class="accent">state-indirection + producer→consumer chaining</span>, with a strict <b>ownership matrix</b>: loops write facts + cadence only; decisions stay human.</p>
+        <p class="r" style="margin-bottom:16px">A scheduled layer that researches <b>Singapore</b> AI events (regional APAC = a speakers/trends watch), keeps <b>Notion as the source of truth</b>, and pushes a weekly digest. Producer loops write to Notion; the digest reads from it. A strict <b>ownership matrix</b> applies: loops write facts + cadence columns only; decisions stay human.</p>
         <div class="pchain r">
           <div class="pnode"><div class="pk">Schedule</div><h4>OpenClaw cron</h4><p>native on 2026.6.x — radar daily 09:00 · trends daily 09:30 (4-topic rotation) · digest Mon 10:00</p></div>
           <div class="parrow">→</div>
@@ -388,7 +388,7 @@
         </div>
         <div class="blocks r">
           <div class="block"><div class="bt">BLOCKER 1 — collapsed by the upgrade</div><p>Pinned cron couldn't drive tools → <b>moved the pin</b>: OpenClaw 2026.6.10 (via a vendored, fail-closed 1-line NemoClaw patch) restored native scheduled tool-calling. All three loops <b>run live in the gateway</b> — heartbeats + digest observed over Telegram.</p></div>
-          <div class="block"><div class="bt">BLOCKER 2 — retired by measurement</div><p>The 120B executor couldn't loop a list → prompts were <b>one item per run</b> (<b>strong model authors, weak model executes</b>). Measured on Kimi K2.6: a 5-event batch ran <b>85 s (~17 s/event)</b> vs <b>~57 s</b> for one cold single — 5 distinct research passes, 5 Notion writes, <b>verified by effects</b>. Scaffold dropped 2026-07-10; the loops now drain the due queue. <b>A bigger model bought back the engineering.</b></p></div>
+          <div class="block"><div class="bt">BLOCKER 2 — retired by measurement</div><p>The 120B executor couldn't loop a list → prompts were <b>one item per run</b> (<b>strong model authors, weak model executes</b>). Measured on Kimi K2.6: a 5-event batch ran <b>85 s (~17 s/event)</b> vs <b>~57 s</b> for one cold single — 5 distinct research passes, 5 Notion writes, <b>verified by effects</b>. Scaffold dropped 2026-07-10; the loops now drain the due queue. <b>A stronger model made the scaffold unnecessary.</b></p></div>
         </div>
       </section>
 
@@ -400,9 +400,9 @@
           <div class="rule"></div>
         </div>
         <div class="chips">
-          <div class="chip r"><h3><span class="k">›</span> The egress trap</h3><p><b>Felt like:</b> the agent reporting <i>"I can't reach your calendar"</i> — while every test we ran said the calendar tool was fine. <b>Why:</b> the sandbox runs each helper tool inside a sealed private network (a <i>netns</i>) with its settings stripped — and our tests ran <i>outside</i> the seal, so they always passed. <b>Fix:</b> the tool reads the network settings off its parent process and relaunches itself with them.</p></div>
-          <div class="chip r"><h3><span class="k">›</span> Health checks that lie</h3><p><b>Felt like:</b> every standard "is it up?" check said <b>down</b> — while the agent was still replying normally on Telegram. <b>Why:</b> that same sealed network hides the server from outside probes; they can't see in. <b>Fix / lesson:</b> trust the server's <b>own log</b>, never the probe — acting on the false "down" would have restarted a healthy service in a loop.</p></div>
-          <div class="chip r"><h3><span class="k">›</span> The invisible new tool</h3><p><b>Felt like:</b> we installed the calendar tool and the config listed it — the agent still said it didn't exist. <b>Why:</b> the agent builds its tool list once and <b>caches</b> it; a settings reload updates the file, not the cache — like an app that won't appear until you reboot. <b>Fix:</b> a full restart of the agent's gateway (and even <i>finding</i> the right process to restart had a trap).</p></div>
+          <div class="chip r"><h3><span class="k">›</span> Tool calls blocked by the sandbox netns</h3><p><b>Felt like:</b> the agent reporting <i>"I can't reach your calendar"</i> — while every test we ran said the calendar tool was fine. <b>Why:</b> the sandbox runs each helper tool inside a sealed private network (a <i>netns</i>) with its settings stripped — and our tests ran <i>outside</i> the seal, so they always passed. <b>Fix:</b> the tool reads the network settings off its parent process and relaunches itself with them.</p></div>
+          <div class="chip r"><h3><span class="k">›</span> Health probes that false-negative</h3><p><b>Felt like:</b> every standard "is it up?" check said <b>down</b> — while the agent was still replying normally on Telegram. <b>Why:</b> that same sealed network hides the server from outside probes; they can't see in. <b>Fix / lesson:</b> trust the server's <b>own log</b>, never the probe — acting on the false "down" would have restarted a healthy service in a loop.</p></div>
+          <div class="chip r"><h3><span class="k">›</span> New MCP tool not picked up</h3><p><b>Felt like:</b> we installed the calendar tool and the config listed it — the agent still said it didn't exist. <b>Why:</b> the agent builds its tool list once and <b>caches</b> it; a settings reload updates the file, not the cache — like an app that won't appear until you reboot. <b>Fix:</b> a full restart of the agent's gateway (and even <i>finding</i> the right process to restart had a trap).</p></div>
           <div class="chip r"><h3><span class="k">›</span> Personal-account sign-in</h3><p><b>Felt like:</b> connecting a personal Outlook calendar should be simple — but the server-style credentials corporate apps use <b>don't exist</b> for personal accounts (no company behind them). <b>Fix:</b> a one-time, phone-style <b>device-code</b> sign-in mints a long-lived token, scoped to the minimum — read-only unless write access is explicitly switched on.</p></div>
         </div>
         <div class="footnote r">Four bugs across four layers — sandbox networking, process lifecycle, runtime caching, and consumer OAuth. Full technical write-ups: <code>docs/LEARNINGS.md</code>.</div>
@@ -416,8 +416,8 @@
           <div class="rule"></div>
         </div>
         <div class="steps-list">
-          <div class="nstep r"><div class="num">1</div><div><div class="nt">Survive host reboots</div><div class="nd">A Mac reboot once took the host gateway down for days unnoticed; the host is now an EC2 instance — add boot auto-start (systemd) + an is-finn-alive heartbeat so an outage pages instead of hides.</div></div></div>
-          <div class="nstep r"><div class="num">2</div><div><div class="nt">Price the trade, not just time it</div><div class="nd">The batch is proven on <b>latency</b> (~17 s/event vs ~57 s single) and the scaffold is gone — but <b>cost-per-completed-task</b> is still un-measured. Instrument tokens and spend per completed check across executors, so the model choice carries a number instead of a feel.</div></div></div>
+          <div class="nstep r"><div class="num">1</div><div><div class="nt">Survive host reboots</div><div class="nd">A Mac reboot once took the host gateway down for days unnoticed; the host is now an EC2 instance — add boot auto-start (systemd) + an is-finn-alive heartbeat so an outage alerts instead of going unnoticed.</div></div></div>
+          <div class="nstep r"><div class="num">2</div><div><div class="nt">Measure cost, not just latency</div><div class="nd">The batch is measured on <b>latency</b> (~17 s/event vs ~57 s single) and the scaffold is gone — but <b>cost-per-completed-task</b> is still un-measured. Instrument tokens and spend per completed check across executors, so the model choice carries a measured cost.</div></div></div>
           <div class="nstep r"><div class="num">3</div><div><div class="nt">Teach the bootstrap the new schema</div><div class="nd">The Notion hub grew three pillars (This Quarter · People CRM · Accounts) host-side; extend <code>notion-bootstrap.mjs</code> so a from-scratch rebuild recreates them.</div></div></div>
           <div class="nstep opt r"><div class="num">4</div><div><div class="nt">Optional hardening</div><div class="nd">Self-host Firecrawl to regain read-egress control; keep add-ons read-only for higher-trust deployments.</div></div></div>
         </div>
