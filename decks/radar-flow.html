@@ -129,13 +129,15 @@
     <h1><span class="g">finn</span> · Conference Radar — <span class="g">diagnosis · proposal · shipped</span></h1>
     <p class="sub">Feature 4 of finn's proactive layer: re-check the <b>upcoming Singapore AI events</b> (9 at diagnosis time) in Notion, update each, and ping Victor on Telegram when something material changes (new keynote / NVIDIA confirmed / date or venue move). Click any node for detail. Toggle the three states.</p>
     <div style="margin:16px 0 0;padding:12px 16px;border:1px solid #cfe3a8;border-radius:12px;background:var(--green-l,#eef6e0);font-size:13.5px;line-height:1.5;color:#3c5d00">
-      <b>OUTCOME — what actually shipped (2026-06-27 → 2026-07-07):</b> neither state below is the live design —
+      <b>OUTCOME — what actually shipped (2026-06-27 → 2026-07-10):</b> neither state below is the live design —
       <b>the pin itself moved</b>. OpenClaw <b>2026.6.10</b> (enabled by a vendored, fail-closed 1-line NemoClaw patch)
       restored native in-gateway scheduled tool-calling, so the three loops run live as <b>OpenClaw cron jobs</b>:
       conf-radar daily 09:00 SGT · topic-trends <b>daily 09:30 — two topics per run</b> · weekly digest <b>Mon 10:00</b>
       (staggered off the 09:00 collision). Small-batch-per-run was <b>kept deliberately</b> for the 120B executor —
       and extended on 2026-07-07, when a live load test at shared-endpoint peak (~3 gen tok/s vs ~67 off-peak) showed
-      the all-topics trends run couldn't fit its 900s job budget: it now rotates the watchlist two topics at a time.
+      the all-topics trends run couldn't fit its 900s job budget: it rotated the watchlist two topics at a time.
+      On <b>2026-07-10</b>, after the model swap to Kimi K2.6, the small-batch scaffold was <b>retired by measurement</b>:
+      the radar now drains the due queue (<b>≤8 events/run</b>) and trends rotates <b>4 topics/run</b>.
       Toggle <b>✅ Shipped</b> for the live design; the two 2026-06-25 states are preserved as the diagnosis + proposal
       that led there.
     </div>
@@ -163,7 +165,7 @@
     <span><i style="background:var(--green)"></i> works / tools fire</span>
     <span><i style="background:var(--bad)"></i> break — flow stops here</span>
     <span><i style="background:var(--warn)"></i> warning — model-capability limit</span>
-    <span style="margin-left:auto">finn · diagnosis 2026-06-25 (OpenClaw 2026.5.27, pinned) · shipped on OpenClaw 2026.6.10 · updated 2026-07-06</span>
+    <span style="margin-left:auto">finn · diagnosis 2026-06-25 (OpenClaw 2026.5.27, pinned) · shipped on OpenClaw 2026.6.10 · updated 2026-07-12</span>
   </footer>
 </div>
 
@@ -240,9 +242,9 @@ const DATA = {
     metrics:[
       {k:'Scheduler',v:'Gateway cron',n:'native on 2026.6.10',good:true},
       {k:'Radar cron jobs',v:'3',n:'of 3 registered',good:true},
-      {k:'Events / run',v:'1',n:'kept from the proposal',good:true},
+      {k:'Events / run',v:'≤8',n:'due-queue drain (2026-07-10)',good:true},
       {k:'Tools fire?',v:'Yes',n:'cron is tool-primed',good:true},
-      {k:'Executor finishes?',v:'Yes',n:'single-event checklist',good:true},
+      {k:'Executor finishes?',v:'Yes',n:'batched loop, verified',good:true},
       {k:'Writes',v:'Cadence only',n:'ownership matrix',good:true},
     ],
     stages:[
@@ -304,8 +306,8 @@ const CMP=[
   ['Radar entries','1 cron job','1 dispatch timer (+ trends, digest)','3 cron jobs (radar · trends · digest)'],
   ['Invocation','scheduled agentTurn (--message)','openclaw agent --agent main (per event)','scheduled run — tool-primed natively'],
   ['Bootstrap / TOOLS.md','stripped → no priming','full → tools primed','full — native on 2026.6.x'],
-  ['Events per run','9 (one loop)','1 (single-event checklist)','1 — kept deliberately'],
-  ['Runs per day','1','0–9 (only due events)','1 daily + 2 weekly'],
+  ['Events per run','9 (one loop)','1 (single-event checklist)','≤8 — due-queue drain (2026-07-10)'],
+  ['Runs per day','1','0–9 (only due events)','2 daily + 1 weekly'],
   ['Tools actually fire','No','Yes','Yes'],
   ['Executor completes','No (Nemotron)','Yes (proven)','Yes (live: heartbeats + digest)'],
 ];
