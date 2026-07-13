@@ -300,3 +300,34 @@ Validated the hard way on 2026-07-08 (EC2 bring-up; NemoClaw v0.0.73 host CLI).
   missing — the case when the image was built under an older nemoclaw — **every `nemoclaw exec`
   exits 1 even though the inner command succeeded**, which silently kills `set -e` setup scripts
   mid-run. Copy the helper in from `~/.nemoclaw/source/scripts/lib/` or keep the modes intact.
+
+## 13. A reasoning model needs output headroom (`maxTokens` starves the visible answer)
+
+Validated 2026-07-13 (the `finn-weekly-digest` cron failure).
+
+- **Symptom: a cron run dies with "⚠️ Agent couldn't generate a response … some tool actions
+  may have already been executed", and the gateway log shows
+  `incomplete turn detected … stopReason=length`.** The run's final assistant turn in the
+  session jsonl is the tell: `output: 8192, reasoningTokens: 8191, content: []` — the model
+  spent the ENTIRE `maxTokens` budget thinking and had zero tokens left for visible text.
+- **Root cause: kimi-k2.6 streams its reasoning in-band**, inside the same completion budget as
+  the answer, even with `thinkingLevel: off` and the model registered `reasoning: false` (the
+  endpoint reasons regardless; the harness knobs don't reach it). With `maxTokens: 8192` any
+  turn that thinks long — e.g. synthesizing a digest from four fat Notion query results — hits
+  `stopReason=length` mid-think. A length-stop is NOT retried by the reasoning-only-turn
+  continuation machinery (that path triggers on complete turns with no visible text), so it
+  surfaces straight to the user.
+- **Fix: give the completion budget ~4× headroom** — `INFERENCE_MAX_TOKENS=32768` (context
+  window 262144 has plenty of room). Two config traps while applying it:
+  - `layer_models` and the Dockerfile bake used to be **append-only** (`any(id==mid) or
+    append(...)`) — re-running setup with a new `INFERENCE_MAX_TOKENS` silently changed
+    nothing on an already-registered model. Both now replace-or-append.
+  - For the LIVE sandbox, patch `models.providers.inference.models[].maxTokens` in
+    `openclaw.json` and do a full gateway restart (§2's rule: model config loads only on
+    restart).
+- **Triage recipe:** failed run's sessionId is in the `message processed … outcome=error` log
+  line → read `/sandbox/.openclaw/agents/main/sessions/<sessionId>.jsonl` → last assistant
+  entry's `stopReason`/`usage` tells you length-starvation (this §) vs rate-limit (429, §11)
+  vs reasoning-only (§11). Before retrying, check the transcript's tool calls: the digest run
+  was read-only Notion queries, so a manual `gw-cron.sh cron run <jobId> --wait` re-delivery
+  was safe.
