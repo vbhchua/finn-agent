@@ -187,6 +187,17 @@
   .chip li{font-size:13px;line-height:1.4;color:var(--ink2);padding-left:14px;position:relative}
   .chip li::before{content:"•";position:absolute;left:0;color:var(--green-d)}
   .slide.dense .chip li{font-size:12.5px;line-height:1.35}
+
+  /* ---- three insights ---- */
+  .ins{display:flex;flex-direction:column;gap:13px;flex:1;justify-content:center}
+  .insrow{display:flex;gap:16px;background:var(--panel);border:1px solid var(--line);border-radius:13px;
+    padding:14px 18px;align-items:flex-start}
+  .insrow .num{flex:none;width:30px;height:30px;border-radius:999px;background:var(--green);color:#fff;
+    display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;margin-top:2px}
+  .insrow .it{font-size:15.5px;font-weight:700;color:var(--ink)}
+  .insrow ul{list-style:none;margin-top:5px;display:flex;flex-direction:column;gap:4px}
+  .insrow li{font-size:13px;line-height:1.42;color:var(--ink2);padding-left:17px;position:relative}
+  .insrow li::before{content:"→";position:absolute;left:0;color:var(--green-d)}
   /* dense variant — 5 chips on one 16:9 slide */
   .slide.dense .chips{gap:12px}
   .slide.dense .chip{padding:13px 18px}
@@ -460,10 +471,58 @@
         </div>
       </section>
 
-      <!-- 9 · DEPTH OF STACK -->
+      <!-- 9 · INSIGHTS -->
+      <section class="slide">
+        <div class="head r">
+          <div class="eyebrow">Learnings</div>
+          <h2>Three insights</h2>
+          <div class="rule"></div>
+        </div>
+        <div class="ins">
+          <div class="insrow r"><div class="num">1</div><div>
+            <div class="it">OpenClaw's simplicity meets OpenShell's layers</div>
+            <ul>
+              <li>The sandbox builds networking layers on top of a simple agent runtime — and customisation gets harder for each one.</li>
+              <li>The trade is worth it when full sovereignty is the goal — then apply Meta's <b>Agents Rule of Two</b>: an agent gets at most two of <i>untrusted inputs · private data · external actions</i>.</li>
+            </ul>
+          </div></div>
+          <div class="insrow r"><div class="num">2</div><div>
+            <div class="it">Keeping dependencies current is real work</div>
+            <ul>
+              <li>OpenClaw ships roughly weekly — NemoClaw's pin, and this repo behind it, have to keep pace with new OpenClaw and OpenShell releases.</li>
+              <li>Every issue poses the same fork: update OpenClaw / OpenShell, or work around it in the Dockerfile and setup scripts?</li>
+            </ul>
+          </div></div>
+          <div class="insrow r"><div class="num">3</div><div>
+            <div class="it">A 24/7 agent has a real bill</div>
+            <ul>
+              <li>An always-on VM buys immediacy; LLM API spend comes on top — chosen by value, cost-per-task.</li>
+              <li>Managed agents on a shared platform win unless full control is needed — but only if onboarding new MCP connectors stays easy. Otherwise it's a dead end.</li>
+            </ul>
+          </div></div>
+        </div>
+        <div class="footnote r">Reference: Meta, <i>Practical AI agent security</i> — the Agents Rule of Two.</div>
+      </section>
+
+      <!-- 10 · NEXT STEPS -->
+      <section class="slide">
+        <div class="head r">
+          <div class="eyebrow">Where it goes</div>
+          <h2>Next steps</h2>
+          <div class="rule"></div>
+        </div>
+        <div class="steps-list">
+          <div class="nstep r"><div class="num">1</div><div><div class="nt">Survive host reboots</div><div class="nd">A Mac reboot once took the host gateway down for days unnoticed; the host is now an EC2 instance — add boot auto-start (systemd) + an is-finn-alive heartbeat so an outage alerts instead of going unnoticed.</div></div></div>
+          <div class="nstep r"><div class="num">2</div><div><div class="nt">Measure cost, not just latency</div><div class="nd">The batch is measured on <b>latency</b> (~17 s/event vs ~57 s single) and the scaffold is gone — but <b>cost-per-completed-task</b> is still un-measured. Instrument tokens and spend per completed check across executors, so the model choice carries a measured cost.</div></div></div>
+          <div class="nstep r"><div class="num">3</div><div><div class="nt">Teach the bootstrap the new schema</div><div class="nd">The Notion hub grew three pillars (This Quarter · People CRM · Accounts) host-side; extend <code>notion-bootstrap.mjs</code> so a from-scratch rebuild recreates them.</div></div></div>
+          <div class="nstep opt r"><div class="num">4</div><div><div class="nt">Optional hardening</div><div class="nd">Self-host Firecrawl to regain read-egress control; keep add-ons read-only for higher-trust deployments.</div></div></div>
+        </div>
+      </section>
+
+      <!-- 11 · DEPTH OF STACK -->
       <section class="slide dense">
         <div class="head r">
-          <div class="eyebrow">The hard parts</div>
+          <div class="eyebrow">Backup · The hard parts</div>
           <h2>What made it hard — depth of stack</h2>
           <div class="rule"></div>
         </div>
@@ -497,22 +556,7 @@
         <div class="footnote r">Five bugs across five layers — sandbox networking, process lifecycle, runtime caching, consumer OAuth, and the model's own output budget. Full technical write-ups: <code>docs/LEARNINGS.md</code>.</div>
       </section>
 
-      <!-- 10 · NEXT STEPS -->
-      <section class="slide">
-        <div class="head r">
-          <div class="eyebrow">Where it goes</div>
-          <h2>Next steps</h2>
-          <div class="rule"></div>
-        </div>
-        <div class="steps-list">
-          <div class="nstep r"><div class="num">1</div><div><div class="nt">Survive host reboots</div><div class="nd">A Mac reboot once took the host gateway down for days unnoticed; the host is now an EC2 instance — add boot auto-start (systemd) + an is-finn-alive heartbeat so an outage alerts instead of going unnoticed.</div></div></div>
-          <div class="nstep r"><div class="num">2</div><div><div class="nt">Measure cost, not just latency</div><div class="nd">The batch is measured on <b>latency</b> (~17 s/event vs ~57 s single) and the scaffold is gone — but <b>cost-per-completed-task</b> is still un-measured. Instrument tokens and spend per completed check across executors, so the model choice carries a measured cost.</div></div></div>
-          <div class="nstep r"><div class="num">3</div><div><div class="nt">Teach the bootstrap the new schema</div><div class="nd">The Notion hub grew three pillars (This Quarter · People CRM · Accounts) host-side; extend <code>notion-bootstrap.mjs</code> so a from-scratch rebuild recreates them.</div></div></div>
-          <div class="nstep opt r"><div class="num">4</div><div><div class="nt">Optional hardening</div><div class="nd">Self-host Firecrawl to regain read-egress control; keep add-ons read-only for higher-trust deployments.</div></div></div>
-        </div>
-      </section>
-
-      <!-- 11 · SECURITY POSTURE -->
+      <!-- 12 · SECURITY POSTURE -->
       <section class="slide">
         <div class="head r">
           <div class="eyebrow">Backup · Trust model</div>
