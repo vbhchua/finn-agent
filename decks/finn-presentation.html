@@ -96,6 +96,8 @@
     padding:4px 9px;border-radius:999px}
   .pill.ok{background:var(--green-soft);color:var(--green-d)}
   .pill.wip{background:var(--warnbg);color:var(--warn)}
+  .pill.nat{background:#eef3fb;color:#1f6feb}
+  .pill.mod{background:var(--warnbg);color:var(--warn)}
 
   /* ---- architecture diagram ---- */
   .arch{display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px;flex:1;align-items:stretch;margin-top:6px}
@@ -309,30 +311,31 @@
       <!-- 4 · KEY FEATURES -->
       <section class="slide">
         <div class="head r">
-          <div class="eyebrow">What finn does</div>
-          <h2>Key features</h2>
+          <div class="eyebrow">Key features</div>
+          <h2>What finn does</h2>
           <div class="rule"></div>
         </div>
         <div class="grid3">
-          <div class="card r"><div class="ic">🔎</div>
+          <div class="card r"><span class="pill mod">MODIFIED</span><div class="ic">🔎</div>
             <h3>Web research</h3>
             <p><b>brave</b> search out-of-the-box + bundled <b>Firecrawl</b> fetch → reads <b>any public URL</b> server-side, no per-site allowlist.</p></div>
-          <div class="card r"><div class="ic">💬</div>
+          <div class="card r"><span class="pill nat">BLUEPRINT</span><div class="ic">💬</div>
             <h3>Telegram-native</h3>
             <p>DM the bot to drive it. Inbound is <b>pairing-gated</b> (<code>dmPolicy=pairing</code>) — the only way in.</p></div>
-          <div class="card r"><div class="ic">📅</div>
+          <div class="card r"><span class="pill ok">ADDED</span><div class="ic">📅</div>
             <h3>Calendar add-on</h3>
             <p>Outlook / live.com via a zero-dep <b>MCP server</b>. Read by default; create/update/delete behind an opt-in.</p></div>
-          <div class="card r"><div class="ic">🗂️</div>
+          <div class="card r"><span class="pill ok">ADDED</span><div class="ic">🗂️</div>
             <h3>Notion connector</h3>
             <p>Search + read pages/DBs via MCP; write opt-in. Sees <b>only pages shared</b> with the integration.</p></div>
-          <div class="card r"><div class="ic">📡</div>
+          <div class="card r"><span class="pill ok">ADDED</span><div class="ic">📡</div>
             <h3>Event intelligence</h3>
             <p>Proactive <b>conference radar</b> + <b>topic trends</b> + a <b>weekly digest</b> over a Notion knowledge base — three scheduled loops.</p></div>
-          <div class="card r"><div class="ic">🧩</div>
+          <div class="card r"><span class="pill ok">ADDED</span><div class="ic">🧩</div>
             <h3>Zero-dep MCP tools</h3>
             <p>Our own auditable servers (raw stdio + <code>fetch</code>) — runtime add-ons, <b>not</b> baked into the image.</p></div>
         </div>
+        <div class="footnote r"><b>BLUEPRINT</b> = stock in the NemoClaw blueprint · <b>MODIFIED</b> = a blueprint capability re-worked here (Firecrawl re-baked into the 2026.6.10 image via a vendored patch) · <b>ADDED</b> = built new in this repo.</div>
       </section>
 
       <!-- 5 · ARCHITECTURE -->
