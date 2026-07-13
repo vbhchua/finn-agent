@@ -480,24 +480,27 @@
         </div>
         <div class="ins">
           <div class="insrow r"><div class="num">1</div><div>
-            <div class="it">OpenClaw's simplicity meets OpenShell's layers</div>
+            <div class="it">OpenClaw's simplicity vs. NemoClaw's security</div>
             <ul>
-              <li>The sandbox builds networking layers on top of a simple agent runtime — and customisation gets harder for each one.</li>
-              <li>The trade is worth it when full sovereignty is the goal — then apply Meta's <b>Agents Rule of Two</b>: an agent gets at most two of <i>untrusted inputs · private data · external actions</i>.</li>
+              <li>The sandbox builds networking layers on top of a simple agent runtime, which makes customisation far harder — adding a Notion MCP connector is an involved step!</li>
+              <li>Is the trade-off worth it when there are other ways to meet the security goal? E.g. Meta's <b>Agents Rule of Two</b>: an agent gets at most two of <i>untrusted inputs · private data · external actions</i>.</li>
+              <li><b>Recommend:</b> clear guidelines in a skill for onboarding new MCP connectors via NemoClaw (covering OpenClaw / OpenShell).</li>
             </ul>
           </div></div>
           <div class="insrow r"><div class="num">2</div><div>
             <div class="it">Keeping dependencies current is real work</div>
             <ul>
-              <li>OpenClaw ships roughly weekly — NemoClaw's pin, and this repo behind it, have to keep pace with new OpenClaw and OpenShell releases.</li>
-              <li>Every issue poses the same fork: update OpenClaw / OpenShell, or work around it in the Dockerfile and setup scripts?</li>
+              <li>OpenClaw ships roughly weekly, so NemoClaw keeping pace with new OpenClaw releases matters — at one point my NemoClaw was running OpenClaw 2026.5.27 while 2026.6.10 was available.</li>
+              <li>With a modified NemoClaw Dockerfile, the question kept recurring: update OpenClaw, or work around it in the Dockerfile and other mods?</li>
+              <li><b>Recommend:</b> a tough one — beyond accelerating NemoClaw updates to keep pace with its core dependencies.</li>
             </ul>
           </div></div>
           <div class="insrow r"><div class="num">3</div><div>
-            <div class="it">A 24/7 agent has a real bill</div>
+            <div class="it">A 24/7 self-managed agent has a real bill</div>
             <ul>
-              <li>An always-on VM buys immediacy; LLM API spend comes on top — chosen by value, cost-per-task.</li>
-              <li>Managed agents on a shared platform win unless full control is needed — but only if onboarding new MCP connectors stays easy. Otherwise it's a dead end.</li>
+              <li>An always-on VM on AWS buys uptime — but coupled with LLM API spend, it runs over S$1 a day.</li>
+              <li>Do I use it enough to justify the added cost, versus what Claude or ChatGPT already provide?</li>
+              <li><b>Recommend:</b> a skill that recommends deployment options by budget — NVIDIA Brev or AWS; NIM or OpenRouter.</li>
             </ul>
           </div></div>
         </div>
