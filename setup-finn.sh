@@ -42,7 +42,7 @@ SEARCH_PROVIDER="${SEARCH_PROVIDER:-brave}"
 INFERENCE_MODEL_ID="${INFERENCE_MODEL_ID:-kimi-k2.6}"           # sandbox primary = inference/$INFERENCE_MODEL_ID
 INFERENCE_ENDPOINT_URL="${INFERENCE_ENDPOINT_URL:-https://api.moonshot.ai/v1}"  # host-side, registered at onboard (informational here)
 INFERENCE_CONTEXT_WINDOW="${INFERENCE_CONTEXT_WINDOW:-262144}"
-INFERENCE_MAX_TOKENS="${INFERENCE_MAX_TOKENS:-8192}"
+INFERENCE_MAX_TOKENS="${INFERENCE_MAX_TOKENS:-32768}"  # k2.6 reasons in-band: 8192 starves visible output (LEARNINGS §13)
 OPENROUTER_MODEL="${OPENROUTER_MODEL:-openrouter/moonshotai/kimi-k2.6}"
 DOCKERFILE="${DOCKERFILE:-$HERE/Dockerfile.finn-2026.6.10}"
 
@@ -297,10 +297,12 @@ p="/sandbox/.openclaw/openclaw.json"; mid=os.environ["MID"]; or_model=os.environ
 shutil.copy(p, p+".pre-models"); cfg=json.load(open(p))
 d=cfg["agents"]["defaults"]; d.setdefault("model",{})["primary"]=f"inference/{mid}"
 models=cfg["models"]["providers"]["inference"].setdefault("models",[])
-if not any(m.get("id")==mid for m in models):
-    models.append({"id":mid,"name":f"inference/{mid}","reasoning":False,"input":["text"],
-        "cost":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0},
-        "contextWindow":int(os.environ["CTX"]),"maxTokens":int(os.environ["MAX"])})
+# Replace-or-append so .env stays the single source of truth: an append-only guard
+# silently ignores contextWindow/maxTokens changes on an already-registered model.
+models[:]=[m for m in models if m.get("id")!=mid]
+models.append({"id":mid,"name":f"inference/{mid}","reasoning":False,"input":["text"],
+    "cost":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0},
+    "contextWindow":int(os.environ["CTX"]),"maxTokens":int(os.environ["MAX"])})
 if or_key:
     cfg.setdefault("env",{})["OPENROUTER_API_KEY"]=or_key
     fb=d["model"].setdefault("fallbacks",[]); (or_model in fb) or fb.append(or_model)

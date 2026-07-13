@@ -79,7 +79,7 @@ NOTION_WRITE=1 MS_CALENDAR_WRITE=1 ./setup-finn.sh   # drop the *_WRITE flags fo
 
 **→ Full guide — prerequisites, MCP internals, Exa variant, manual steps, and troubleshooting: [SETUP.md](SETUP.md).**
 
-**→ The hard-won gotchas — the MCP egress trap, netns false-negatives, lifecycle & recovery: [docs/LEARNINGS.md](docs/LEARNINGS.md).**
+**→ The hard-won gotchas — the MCP egress trap, netns false-negatives, lifecycle & recovery, reasoning-model output headroom: [docs/LEARNINGS.md](docs/LEARNINGS.md).**
 
 ---
 

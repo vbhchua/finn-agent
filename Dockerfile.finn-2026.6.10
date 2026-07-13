@@ -110,13 +110,14 @@ RUN node --experimental-strip-types /src/lib/messaging/applier/build/messaging-b
 #     layer_models stays the runtime re-apply path for the live sandbox.
 ARG INFERENCE_MODEL_ID=kimi-k2.6
 ARG INFERENCE_CONTEXT_WINDOW=262144
-ARG INFERENCE_MAX_TOKENS=8192
+ARG INFERENCE_MAX_TOKENS=32768
 RUN python3 -c "import json, os; \
 p=os.path.expanduser('~/.openclaw/openclaw.json'); d=json.load(open(p)); \
 mid=os.environ['INFERENCE_MODEL_ID']; \
 d['agents']['defaults'].setdefault('model', {})['primary']='inference/'+mid; \
 ms=d['models']['providers']['inference'].setdefault('models', []); \
-any(m.get('id')==mid for m in ms) or ms.append({'id': mid, 'name': 'inference/'+mid, \
+ms[:]=[m for m in ms if m.get('id')!=mid]; \
+ms.append({'id': mid, 'name': 'inference/'+mid, \
 'reasoning': False, 'input': ['text'], \
 'cost': {'input': 0, 'output': 0, 'cacheRead': 0, 'cacheWrite': 0}, \
 'contextWindow': int(os.environ['INFERENCE_CONTEXT_WINDOW']), \
