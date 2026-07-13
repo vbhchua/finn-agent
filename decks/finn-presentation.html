@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>finn — sandboxed research agent on NemoClaw / OpenShell</title>
+<title>finn — always-on research assistant on NemoClaw / OpenShell</title>
 <style>
   :root{
     --green:#76b900; --green-d:#5a8f00; --green-soft:#eaf4d8;
@@ -151,6 +151,12 @@
   .statusbanner{display:inline-flex;align-items:center;gap:8px;background:var(--green-soft);color:var(--green-d);
     font-size:13.5px;font-weight:700;padding:7px 14px;border-radius:999px;margin-left:14px;vertical-align:middle}
 
+  /* ---- seen live ---- */
+  .seen{display:grid;grid-template-columns:auto 1fr;gap:30px;flex:1;align-items:center;min-height:0}
+  .seen .phone{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px}
+  .seen .phone img{height:440px;width:auto;border-radius:8px;display:block}
+  .seen .panelbox{align-self:center}
+
   /* ---- depth / next ---- */
   .chips{display:grid;grid-template-columns:1fr 1fr;gap:16px;flex:1;align-content:center}
   .chip{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px 22px}
@@ -219,9 +225,10 @@
           <div>
             <span class="tag r">NVIDIA NemoClaw · OpenShell · Kimi K2.6</span>
             <h1 class="r">finn<span class="dot">.</span></h1>
-            <div class="sub r">A <b>sandboxed research agent</b> on NVIDIA's
-              <span class="accent">NemoClaw / OpenShell</span> stack — reached over Telegram,
-              powered by <b>Kimi K2.6</b> over a host-side OpenAI-compatible endpoint.</div>
+            <div class="sub r">An always-on <b>research assistant</b> — <b>event intelligence +
+              relationship radar</b> over Telegram — sandboxed on NVIDIA's
+              <span class="accent">NemoClaw / OpenShell</span> stack. The model is <b>swappable</b>:
+              Kimi K2.6 today, Nemotron-3 before it, the sandbox unchanged.</div>
             <div class="meta r"><code>nemoclaw onboard --from</code> the 2026.6.10 image · nemoclaw v0.0.68 ·
               OpenClaw 2026.6.10 · Kimi K2.6 (compatible endpoint · OpenRouter fallback) · 2026-06-26 · rev 2026-07-12</div>
           </div>
@@ -243,22 +250,22 @@
           <div class="rule"></div>
         </div>
         <div class="grid3">
-          <div class="card r"><span class="pill ok">LIVE</span><div class="ic">🔎</div>
+          <div class="card r"><div class="ic">🔎</div>
             <h3>Web research</h3>
             <p><b>brave</b> search out-of-the-box + bundled <b>Firecrawl</b> fetch → reads <b>any public URL</b> server-side, no per-site allowlist.</p></div>
-          <div class="card r"><span class="pill ok">LIVE</span><div class="ic">💬</div>
+          <div class="card r"><div class="ic">💬</div>
             <h3>Telegram-native</h3>
             <p>DM the bot to drive it. Inbound is <b>pairing-gated</b> (<code>dmPolicy=pairing</code>) — the only way in.</p></div>
-          <div class="card r"><span class="pill ok">LIVE</span><div class="ic">📅</div>
+          <div class="card r"><div class="ic">📅</div>
             <h3>Calendar add-on</h3>
             <p>Outlook / live.com via a zero-dep <b>MCP server</b>. Read by default; create/update/delete behind an opt-in.</p></div>
-          <div class="card r"><span class="pill ok">LIVE</span><div class="ic">🗂️</div>
+          <div class="card r"><div class="ic">🗂️</div>
             <h3>Notion connector</h3>
             <p>Search + read pages/DBs via MCP; write opt-in. Sees <b>only pages shared</b> with the integration.</p></div>
-          <div class="card r"><span class="pill ok">LIVE</span><div class="ic">📡</div>
+          <div class="card r"><div class="ic">📡</div>
             <h3>Event intelligence</h3>
             <p>Proactive <b>conference radar</b> + <b>topic trends</b> + a <b>weekly digest</b> over a Notion knowledge base — three scheduled loops.</p></div>
-          <div class="card r"><span class="pill ok">LIVE</span><div class="ic">🧩</div>
+          <div class="card r"><div class="ic">🧩</div>
             <h3>Zero-dep MCP tools</h3>
             <p>Our own auditable servers (raw stdio + <code>fetch</code>) — runtime add-ons, <b>not</b> baked into the image.</p></div>
         </div>
@@ -321,7 +328,7 @@
             </ul>
           </div>
           <div class="panelbox delta r">
-            <h3>The one deliberate delta</h3>
+            <h3>The deliberate deltas</h3>
             <ul class="chklist dot">
               <li><b>Firecrawl <code>web_fetch</code></b>: the sandbox still talks to <b>one allowlisted host</b> (<code>api.firecrawl.dev</code>) — Firecrawl's cloud fetches the page on finn's behalf. Net effect: the agent reads <b>any public URL</b> without widening the firewall.</li>
               <li>Add-ons are <b>read-only by default</b>; writes (calendar, Notion) are an explicit opt-in.</li>
@@ -392,7 +399,27 @@
         </div>
       </section>
 
-      <!-- 7 · DEPTH OF STACK -->
+      <!-- 7 · SEEN LIVE -->
+      <section class="slide">
+        <div class="head r">
+          <div class="eyebrow">Seen live</div>
+          <h2>Three days of loops, unattended</h2>
+          <div class="rule"></div>
+        </div>
+        <div class="seen">
+          <div class="phone r"><img src="../docs/telegram-loops.png" alt="finn's radar and trends messages arriving in Telegram across three days"></div>
+          <div class="panelbox r">
+            <ul class="chklist">
+              <li><b>09:00 radar heartbeat</b> — a quiet day still reports itself: “nothing due today”.</li>
+              <li><b>09:30 topic trends</b> — the 4-topic rotation, each with score, delta, and event count.</li>
+              <li><b>“checked 4 events — no changes”</b> — the due-queue drain on a day with nothing to update.</li>
+              <li><b>Every message is loop-initiated</b> — three days, no human prompt in the thread.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- 8 · DEPTH OF STACK -->
       <section class="slide">
         <div class="head r">
           <div class="eyebrow">The hard parts</div>
@@ -408,7 +435,7 @@
         <div class="footnote r">Four bugs across four layers — sandbox networking, process lifecycle, runtime caching, and consumer OAuth. Full technical write-ups: <code>docs/LEARNINGS.md</code>.</div>
       </section>
 
-      <!-- 8 · NEXT STEPS -->
+      <!-- 9 · NEXT STEPS -->
       <section class="slide">
         <div class="head r">
           <div class="eyebrow">Where it goes</div>
@@ -540,7 +567,8 @@
   if(fwdBtn) fwdBtn.addEventListener('click',function(){ pauseFlow(); setFlow(flowIdx+1); });
   if(backBtn) backBtn.addEventListener('click',function(){ pauseFlow(); setFlow(flowIdx-1); });
 
-  go(0);
+  var h=parseInt(location.hash.slice(1),10);
+  go(isNaN(h)?0:h-1);
 })();
 </script>
 </body>
