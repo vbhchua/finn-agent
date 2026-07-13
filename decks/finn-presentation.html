@@ -67,6 +67,16 @@
   .summary-line{margin-top:18px;font-size:15px;color:var(--muted);grid-column:1/-1;
     display:flex;align-items:center;gap:9px}
 
+  /* ---- motivation & takeaways ---- */
+  .mtv{display:grid;grid-template-columns:1fr 1.15fr;gap:26px;flex:1;align-content:center}
+  .mtv .box{border:1px solid var(--line);border-radius:16px;padding:26px 28px;background:var(--panel)}
+  .mtv .box.take{background:#f7fcec;border-color:var(--green)}
+  .mtv h3{font-size:18px;font-weight:800;margin-bottom:15px;letter-spacing:-.3px}
+  .mtv ul{list-style:none;display:flex;flex-direction:column;gap:13px}
+  .mtv li{font-size:15.5px;line-height:1.5;color:var(--ink2);padding-left:27px;position:relative}
+  .mtv li::before{content:"?";position:absolute;left:0;top:0;color:var(--green-d);font-weight:800}
+  .mtv .take li::before{content:"✓"}
+
   /* ---- feature grid ---- */
   .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;flex:1;align-content:center}
   .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:24px 24px;
@@ -247,7 +257,31 @@
         </div>
       </section>
 
-      <!-- 2 · KEY FEATURES -->
+      <!-- 2 · MOTIVATION & TAKEAWAYS -->
+      <section class="slide">
+        <div class="head r">
+          <div class="eyebrow">Why this build</div>
+          <h2>Motivation and takeaways</h2>
+          <div class="rule"></div>
+        </div>
+        <div class="mtv">
+          <div class="box r">
+            <h3>The question</h3>
+            <ul>
+              <li>How would a <b>day-one DevRel</b> set up a personal agent to get going — <b>scouring AI events and keynote speakers</b>, and prioritising which events to attend and who to speak with?</li>
+            </ul>
+          </div>
+          <div class="box take r">
+            <h3>Takeaways</h3>
+            <ul>
+              <li><b>NemoClaw locks the runtime down well — but customising it is not trivial.</b> Adding the Notion and calendar MCPs meant working with the sealed sandbox, not around it.</li>
+              <li><b>Model choice is not straightforward either.</b> There are many excellent options, and a real budget buys only a limited number of tests — the host-side endpoint kept each test cheap to set up: swap the model, keep the sandbox.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3 · KEY FEATURES -->
       <section class="slide">
         <div class="head r">
           <div class="eyebrow">What finn does</div>
@@ -276,7 +310,7 @@
         </div>
       </section>
 
-      <!-- 3 · ARCHITECTURE -->
+      <!-- 4 · ARCHITECTURE -->
       <section class="slide">
         <div class="head r">
           <div class="eyebrow">How it's built</div>
@@ -314,7 +348,7 @@
         <div class="archnote r">Every outbound request is routed through the proxy — allowed only if a network policy names the host. <b>Non-root</b>, <b>gateway-auth</b>, and <b>runtime secrets</b> are all inherited from stock NemoClaw. Since 2026-06-27 the sandbox onboards from a <b>thin 2026.6.10 image</b> — the production base + one baked plugin (Firecrawl), enabled by a vendored, fail-closed 1-line NemoClaw patch; posture otherwise unchanged.</div>
       </section>
 
-      <!-- 4 · ONE FLOW -->
+      <!-- 5 · ONE FLOW -->
       <section class="slide">
         <div class="head r">
           <div class="eyebrow">How it works</div>
@@ -349,7 +383,7 @@
         </div>
       </section>
 
-      <!-- 5 · PROACTIVE LAYER -->
+      <!-- 6 · PROACTIVE LAYER -->
       <section class="slide">
         <div class="head r">
           <div class="eyebrow">The proactive layer</div>
@@ -375,7 +409,7 @@
         </div>
       </section>
 
-      <!-- 6 · SEEN LIVE -->
+      <!-- 7 · SEEN LIVE -->
       <section class="slide">
         <div class="head r">
           <div class="eyebrow">Seen live</div>
@@ -396,7 +430,7 @@
         </div>
       </section>
 
-      <!-- 7 · DEPTH OF STACK -->
+      <!-- 8 · DEPTH OF STACK -->
       <section class="slide dense">
         <div class="head r">
           <div class="eyebrow">The hard parts</div>
@@ -413,7 +447,7 @@
         <div class="footnote r">Five bugs across five layers — sandbox networking, process lifecycle, runtime caching, consumer OAuth, and the model's own output budget. Full technical write-ups: <code>docs/LEARNINGS.md</code>.</div>
       </section>
 
-      <!-- 8 · NEXT STEPS -->
+      <!-- 9 · NEXT STEPS -->
       <section class="slide">
         <div class="head r">
           <div class="eyebrow">Where it goes</div>
@@ -428,7 +462,7 @@
         </div>
       </section>
 
-      <!-- 9 · SECURITY POSTURE -->
+      <!-- 10 · SECURITY POSTURE -->
       <section class="slide">
         <div class="head r">
           <div class="eyebrow">Backup · Trust model</div>
