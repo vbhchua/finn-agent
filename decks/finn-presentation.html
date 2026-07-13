@@ -314,36 +314,7 @@
         <div class="archnote r">Every outbound request is routed through the proxy — allowed only if a network policy names the host. <b>Non-root</b>, <b>gateway-auth</b>, and <b>runtime secrets</b> are all inherited from stock NemoClaw. Since 2026-06-27 the sandbox onboards from a <b>thin 2026.6.10 image</b> — the production base + one baked plugin (Firecrawl), enabled by a vendored, fail-closed 1-line NemoClaw patch; posture otherwise unchanged.</div>
       </section>
 
-      <!-- 4 · SECURITY POSTURE -->
-      <section class="slide">
-        <div class="head r">
-          <div class="eyebrow">Trust model</div>
-          <h2>Secure by inheritance — posture ≈ stock NemoClaw</h2>
-          <div class="rule"></div>
-        </div>
-        <div class="two">
-          <div class="panelbox r">
-            <h3>Preserved controls</h3>
-            <ul class="chklist">
-              <li><b>Non-root</b> execution as uid 998</li>
-              <li><b>Gateway auth</b> via <code>nemoclaw-start</code></li>
-              <li><b>Deny-by-default</b> L7 egress proxy — the single authority</li>
-              <li><b>Runtime-injected secrets</b> — no keys in image layers</li>
-              <li><b>Telegram pairing</b> — inbound needs manual approval</li>
-            </ul>
-          </div>
-          <div class="panelbox delta r">
-            <h3>The deliberate deltas</h3>
-            <ul class="chklist dot">
-              <li><b>Firecrawl <code>web_fetch</code></b>: the sandbox still talks to <b>one allowlisted host</b> (<code>api.firecrawl.dev</code>) — Firecrawl's cloud fetches the page on finn's behalf. Net effect: the agent reads <b>any public URL</b> without widening the firewall.</li>
-              <li>Add-ons are <b>read-only by default</b>; writes (calendar, Notion) are an explicit opt-in.</li>
-              <li>Bounded by: cloud fetcher can't reach the sandbox's internal network; read-only, research-only scope.</li>
-            </ul>
-          </div>
-        </div>
-      </section>
-
-      <!-- 5 · ONE FLOW -->
+      <!-- 4 · ONE FLOW -->
       <section class="slide">
         <div class="head r">
           <div class="eyebrow">How it works</div>
@@ -378,7 +349,7 @@
         </div>
       </section>
 
-      <!-- 6 · PROACTIVE LAYER -->
+      <!-- 5 · PROACTIVE LAYER -->
       <section class="slide">
         <div class="head r">
           <div class="eyebrow">The proactive layer</div>
@@ -404,7 +375,7 @@
         </div>
       </section>
 
-      <!-- 7 · SEEN LIVE -->
+      <!-- 6 · SEEN LIVE -->
       <section class="slide">
         <div class="head r">
           <div class="eyebrow">Seen live</div>
@@ -425,7 +396,7 @@
         </div>
       </section>
 
-      <!-- 8 · DEPTH OF STACK -->
+      <!-- 7 · DEPTH OF STACK -->
       <section class="slide dense">
         <div class="head r">
           <div class="eyebrow">The hard parts</div>
@@ -442,7 +413,7 @@
         <div class="footnote r">Five bugs across five layers — sandbox networking, process lifecycle, runtime caching, consumer OAuth, and the model's own output budget. Full technical write-ups: <code>docs/LEARNINGS.md</code>.</div>
       </section>
 
-      <!-- 9 · NEXT STEPS -->
+      <!-- 8 · NEXT STEPS -->
       <section class="slide">
         <div class="head r">
           <div class="eyebrow">Where it goes</div>
@@ -454,6 +425,35 @@
           <div class="nstep r"><div class="num">2</div><div><div class="nt">Measure cost, not just latency</div><div class="nd">The batch is measured on <b>latency</b> (~17 s/event vs ~57 s single) and the scaffold is gone — but <b>cost-per-completed-task</b> is still un-measured. Instrument tokens and spend per completed check across executors, so the model choice carries a measured cost.</div></div></div>
           <div class="nstep r"><div class="num">3</div><div><div class="nt">Teach the bootstrap the new schema</div><div class="nd">The Notion hub grew three pillars (This Quarter · People CRM · Accounts) host-side; extend <code>notion-bootstrap.mjs</code> so a from-scratch rebuild recreates them.</div></div></div>
           <div class="nstep opt r"><div class="num">4</div><div><div class="nt">Optional hardening</div><div class="nd">Self-host Firecrawl to regain read-egress control; keep add-ons read-only for higher-trust deployments.</div></div></div>
+        </div>
+      </section>
+
+      <!-- 9 · SECURITY POSTURE -->
+      <section class="slide">
+        <div class="head r">
+          <div class="eyebrow">Backup · Trust model</div>
+          <h2>Secure by inheritance — posture ≈ stock NemoClaw</h2>
+          <div class="rule"></div>
+        </div>
+        <div class="two">
+          <div class="panelbox r">
+            <h3>Preserved controls</h3>
+            <ul class="chklist">
+              <li><b>Non-root</b> execution as uid 998</li>
+              <li><b>Gateway auth</b> via <code>nemoclaw-start</code></li>
+              <li><b>Deny-by-default</b> L7 egress proxy — the single authority</li>
+              <li><b>Runtime-injected secrets</b> — no keys in image layers</li>
+              <li><b>Telegram pairing</b> — inbound needs manual approval</li>
+            </ul>
+          </div>
+          <div class="panelbox delta r">
+            <h3>The deliberate deltas</h3>
+            <ul class="chklist dot">
+              <li><b>Firecrawl <code>web_fetch</code></b>: the sandbox still talks to <b>one allowlisted host</b> (<code>api.firecrawl.dev</code>) — Firecrawl's cloud fetches the page on finn's behalf. Net effect: the agent reads <b>any public URL</b> without widening the firewall.</li>
+              <li>Add-ons are <b>read-only by default</b>; writes (calendar, Notion) are an explicit opt-in.</li>
+              <li>Bounded by: cloud fetcher can't reach the sandbox's internal network; read-only, research-only scope.</li>
+            </ul>
+          </div>
         </div>
       </section>
 
