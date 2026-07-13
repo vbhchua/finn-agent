@@ -411,37 +411,11 @@
         </div>
       </section>
 
-      <!-- 7 · PROACTIVE LAYER -->
-      <section class="slide">
-        <div class="head r">
-          <div class="eyebrow">The proactive layer</div>
-          <h2>Proactive event intelligence
-            <span class="statusbanner">✅ live — 3 loops</span></h2>
-          <div class="rule"></div>
-        </div>
-        <p class="r" style="margin-bottom:16px">A scheduled layer that researches <b>Singapore</b> AI events (regional APAC = a speakers/trends watch), keeps <b>Notion as the source of truth</b>, and pushes a weekly digest. Producer loops write to Notion; the digest reads from it. A strict <b>ownership matrix</b> applies: loops write facts + cadence columns only; decisions stay human.</p>
-        <div class="pchain r">
-          <div class="pnode"><div class="pk">Schedule</div><h4>OpenClaw cron</h4><p>native on 2026.6.x — radar daily 09:00 · trends daily 09:30 (4-topic rotation) · digest Mon 10:00</p></div>
-          <div class="parrow">→</div>
-          <div class="pnode"><div class="pk">Producer</div><h4>Conf radar</h4><p>drains the due queue, ≤8 events / run; writes cadence + changes</p></div>
-          <div class="parrow">→</div>
-          <div class="pnode src"><div class="pk">Store</div><h4>Notion</h4><p>durable, human-curatable source of truth</p></div>
-          <div class="parrow">→</div>
-          <div class="pnode"><div class="pk">Consumer</div><h4>Weekly digest</h4><p>reads what producers wrote</p></div>
-          <div class="parrow">→</div>
-          <div class="pnode"><div class="pk">Deliver</div><h4>Telegram</h4><p>digest + trends summary · ⚠️ backlog alert</p></div>
-        </div>
-        <div class="blocks r">
-          <div class="block"><div class="bt">BLOCKER 1 — collapsed by the upgrade</div><p>Pinned cron couldn't drive tools → <b>moved the pin</b>: OpenClaw 2026.6.10 (via a vendored, fail-closed 1-line NemoClaw patch) restored native scheduled tool-calling. All three loops <b>run live in the gateway</b> — heartbeats + digest observed over Telegram.</p></div>
-          <div class="block"><div class="bt">BLOCKER 2 — retired by measurement</div><p>The 120B executor couldn't loop a list → prompts were <b>one item per run</b> (<b>strong model authors, weak model executes</b>). Measured on Kimi K2.6: a 5-event batch ran <b>85 s (~17 s/event)</b> vs <b>~57 s</b> for one cold single — 5 distinct research passes, 5 Notion writes, <b>verified by effects</b>. Scaffold dropped 2026-07-10; the loops now drain the due queue. <b>A stronger model made the scaffold unnecessary.</b></p></div>
-        </div>
-      </section>
-
-      <!-- 8 · SEEN LIVE -->
+      <!-- 7 · SEEN LIVE -->
       <section class="slide">
         <div class="head r">
           <div class="eyebrow">Seen live</div>
-          <h2>Three days of loops, unattended</h2>
+          <h2>Impact and Insights: Three days of loops, unattended</h2>
           <div class="rule"></div>
         </div>
         <div class="seen">
@@ -455,6 +429,30 @@
               <li><b>Every message is loop-initiated</b> — three days, no human prompt in the thread.</li>
             </ul>
           </div>
+        </div>
+      </section>
+
+      <!-- 8 · PROACTIVE LAYER -->
+      <section class="slide">
+        <div class="head r">
+          <div class="eyebrow">The proactive layer</div>
+          <h2>Impact and Insights: Proactive event intelligence
+            <span class="statusbanner">✅ live — 3 loops</span></h2>
+          <div class="rule"></div>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:22px">
+        <p class="r">A scheduled layer that researches <b>Singapore</b> AI events (regional APAC = a speakers/trends watch), keeps <b>Notion as the source of truth</b>, and pushes a weekly digest. Producer loops write to Notion; the digest reads from it. A strict <b>ownership matrix</b> applies: loops write facts + cadence columns only; decisions stay human.</p>
+        <div class="pchain r">
+          <div class="pnode"><div class="pk">Schedule</div><h4>OpenClaw cron</h4><p>native on 2026.6.x — radar daily 09:00 · trends daily 09:30 (4-topic rotation) · digest Mon 10:00</p></div>
+          <div class="parrow">→</div>
+          <div class="pnode"><div class="pk">Producer</div><h4>Conf radar</h4><p>drains the due queue, ≤8 events / run; writes cadence + changes</p></div>
+          <div class="parrow">→</div>
+          <div class="pnode src"><div class="pk">Store</div><h4>Notion</h4><p>durable, human-curatable source of truth</p></div>
+          <div class="parrow">→</div>
+          <div class="pnode"><div class="pk">Consumer</div><h4>Weekly digest</h4><p>reads what producers wrote</p></div>
+          <div class="parrow">→</div>
+          <div class="pnode"><div class="pk">Deliver</div><h4>Telegram</h4><p>digest + trends summary · ⚠️ backlog alert</p></div>
+        </div>
         </div>
       </section>
 
