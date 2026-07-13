@@ -67,6 +67,24 @@
   .summary-line{margin-top:18px;font-size:15px;color:var(--muted);grid-column:1/-1;
     display:flex;align-items:center;gap:9px}
 
+  /* ---- motivation & takeaways ---- */
+  .mtv{display:grid;grid-template-columns:1fr 1.15fr;gap:26px;flex:1;align-content:center}
+  .mtv .box{border:1px solid var(--line);border-radius:16px;padding:26px 28px;background:var(--panel)}
+  .mtv .box.take{background:#f7fcec;border-color:var(--green)}
+  .mtv h3{font-size:18px;font-weight:800;margin-bottom:15px;letter-spacing:-.3px}
+  .mtv ul{list-style:none;display:flex;flex-direction:column;gap:13px}
+  .mtv li{font-size:15.5px;line-height:1.5;color:var(--ink2);padding-left:27px;position:relative}
+  .mtv li::before{content:"?";position:absolute;left:0;top:0;color:var(--green-d);font-weight:800}
+  .mtv .take li::before{content:"✓"}
+
+  /* ---- what it looks like ---- */
+  .wys{display:grid;grid-template-columns:auto 1fr 1fr;gap:14px;flex:1;align-content:center;min-height:0}
+  .wys .snap{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px;
+    display:flex;flex-direction:column;text-align:center}
+  .wys .snap img{width:auto;max-width:100%;max-height:330px;height:auto;margin:0 auto;border-radius:8px}
+  .wys .snap .cap{font-size:13px;font-weight:700;color:var(--ink2);margin-top:8px}
+  .wys .snap .cap small{display:block;font-weight:400;color:var(--muted);font-size:12px;margin-top:2px}
+
   /* ---- feature grid ---- */
   .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;flex:1;align-content:center}
   .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:24px 24px;
@@ -78,6 +96,8 @@
     padding:4px 9px;border-radius:999px}
   .pill.ok{background:var(--green-soft);color:var(--green-d)}
   .pill.wip{background:var(--warnbg);color:var(--warn)}
+  .pill.nat{background:#eef3fb;color:#1f6feb}
+  .pill.mod{background:var(--warnbg);color:var(--warn)}
 
   /* ---- architecture diagram ---- */
   .arch{display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px;flex:1;align-items:stretch;margin-top:6px}
@@ -163,6 +183,21 @@
   .chip h3{font-size:17px;font-weight:700;margin-bottom:7px;letter-spacing:-.2px;display:flex;gap:9px;align-items:center}
   .chip h3 .k{color:var(--green-d)}
   .chip p{font-size:14px;line-height:1.45;color:var(--ink2)}
+  .chip ul{list-style:none;display:flex;flex-direction:column;gap:4px}
+  .chip li{font-size:13px;line-height:1.4;color:var(--ink2);padding-left:14px;position:relative}
+  .chip li::before{content:"•";position:absolute;left:0;color:var(--green-d)}
+  .slide.dense .chip li{font-size:12.5px;line-height:1.35}
+
+  /* ---- three insights ---- */
+  .ins{display:flex;flex-direction:column;gap:13px;flex:1;justify-content:center}
+  .insrow{display:flex;gap:16px;background:var(--panel);border:1px solid var(--line);border-radius:13px;
+    padding:14px 18px;align-items:flex-start}
+  .insrow .num{flex:none;width:30px;height:30px;border-radius:999px;background:var(--green);color:#fff;
+    display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;margin-top:2px}
+  .insrow .it{font-size:15.5px;font-weight:700;color:var(--ink)}
+  .insrow ul{list-style:none;margin-top:5px;display:flex;flex-direction:column;gap:4px}
+  .insrow li{font-size:13px;line-height:1.42;color:var(--ink2);padding-left:17px;position:relative}
+  .insrow li::before{content:"→";position:absolute;left:0;color:var(--green-d)}
   /* dense variant — 5 chips on one 16:9 slide */
   .slide.dense .chips{gap:12px}
   .slide.dense .chip{padding:13px 18px}
@@ -247,36 +282,78 @@
         </div>
       </section>
 
-      <!-- 2 · KEY FEATURES -->
+      <!-- 2 · MOTIVATION & TAKEAWAYS -->
       <section class="slide">
         <div class="head r">
-          <div class="eyebrow">What finn does</div>
-          <h2>Key features</h2>
+          <div class="eyebrow">Why this build</div>
+          <h2>Motivation and takeaways</h2>
           <div class="rule"></div>
         </div>
-        <div class="grid3">
-          <div class="card r"><div class="ic">🔎</div>
-            <h3>Web research</h3>
-            <p><b>brave</b> search out-of-the-box + bundled <b>Firecrawl</b> fetch → reads <b>any public URL</b> server-side, no per-site allowlist.</p></div>
-          <div class="card r"><div class="ic">💬</div>
-            <h3>Telegram-native</h3>
-            <p>DM the bot to drive it. Inbound is <b>pairing-gated</b> (<code>dmPolicy=pairing</code>) — the only way in.</p></div>
-          <div class="card r"><div class="ic">📅</div>
-            <h3>Calendar add-on</h3>
-            <p>Outlook / live.com via a zero-dep <b>MCP server</b>. Read by default; create/update/delete behind an opt-in.</p></div>
-          <div class="card r"><div class="ic">🗂️</div>
-            <h3>Notion connector</h3>
-            <p>Search + read pages/DBs via MCP; write opt-in. Sees <b>only pages shared</b> with the integration.</p></div>
-          <div class="card r"><div class="ic">📡</div>
-            <h3>Event intelligence</h3>
-            <p>Proactive <b>conference radar</b> + <b>topic trends</b> + a <b>weekly digest</b> over a Notion knowledge base — three scheduled loops.</p></div>
-          <div class="card r"><div class="ic">🧩</div>
-            <h3>Zero-dep MCP tools</h3>
-            <p>Our own auditable servers (raw stdio + <code>fetch</code>) — runtime add-ons, <b>not</b> baked into the image.</p></div>
+        <div class="mtv">
+          <div class="box r">
+            <h3>The question</h3>
+            <ul>
+              <li>How would a <b>day-one DevRel</b> set up a personal agent to get going — <b>scouring AI events and keynote speakers</b>, and prioritising which events to attend and who to speak with?</li>
+            </ul>
+          </div>
+          <div class="box take r">
+            <h3>Takeaways</h3>
+            <ul>
+              <li><b>NemoClaw locks the runtime down well — but customising it is not trivial.</b> Adding the Notion and calendar MCPs meant working with the sealed sandbox, not around it.</li>
+              <li><b>Model choice is not straightforward either.</b> There are many excellent options, and a real budget buys only a limited number of tests — the host-side endpoint kept each test cheap to set up: swap the model, keep the sandbox.</li>
+            </ul>
+          </div>
         </div>
       </section>
 
-      <!-- 3 · ARCHITECTURE -->
+      <!-- 3 · WHAT IT LOOKS LIKE -->
+      <section class="slide">
+        <div class="head r">
+          <div class="eyebrow">The three surfaces</div>
+          <h2>What it looks like</h2>
+          <div class="rule"></div>
+        </div>
+        <div class="wys">
+          <div class="snap r"><img src="../docs/telegram-loops.png" alt="finn's loop messages in Telegram">
+            <div class="cap">Telegram — control + delivery<small>heartbeats · trends · weekly digest</small></div></div>
+          <div class="snap r"><img src="../docs/calendar-events.png" alt="tracked AI events on an Outlook calendar">
+            <div class="cap">Calendar, via MCP<small>tracked events on a real calendar — writes are an opt-in</small></div></div>
+          <div class="snap r"><img src="../docs/notion-bd-shortlists.png" alt="Notion BD shortlists board grouped by NVIDIA offering">
+            <div class="cap">Notion — the source of truth<small>BD shortlists by offering · people CRM · events</small></div></div>
+        </div>
+      </section>
+
+      <!-- 4 · KEY FEATURES -->
+      <section class="slide">
+        <div class="head r">
+          <div class="eyebrow">Key features</div>
+          <h2>What finn does</h2>
+          <div class="rule"></div>
+        </div>
+        <div class="grid3">
+          <div class="card r"><span class="pill mod">MODIFIED</span><div class="ic">🔎</div>
+            <h3>Web research</h3>
+            <p><b>brave</b> search out-of-the-box + bundled <b>Firecrawl</b> fetch → reads <b>any public URL</b> server-side, no per-site allowlist.</p></div>
+          <div class="card r"><span class="pill nat">BLUEPRINT</span><div class="ic">💬</div>
+            <h3>Telegram-native</h3>
+            <p>DM the bot to drive it. Inbound is <b>pairing-gated</b> (<code>dmPolicy=pairing</code>) — the only way in.</p></div>
+          <div class="card r"><span class="pill ok">ADDED</span><div class="ic">📅</div>
+            <h3>Calendar add-on</h3>
+            <p>Outlook / live.com via a zero-dep <b>MCP server</b>. Read by default; create/update/delete behind an opt-in.</p></div>
+          <div class="card r"><span class="pill ok">ADDED</span><div class="ic">🗂️</div>
+            <h3>Notion connector</h3>
+            <p>Search + read pages/DBs via MCP; write opt-in. Sees <b>only pages shared</b> with the integration.</p></div>
+          <div class="card r"><span class="pill ok">ADDED</span><div class="ic">📡</div>
+            <h3>Event intelligence</h3>
+            <p>Proactive <b>conference radar</b> + <b>topic trends</b> + a <b>weekly digest</b> over a Notion knowledge base — three scheduled loops.</p></div>
+          <div class="card r"><span class="pill ok">ADDED</span><div class="ic">🧩</div>
+            <h3>Zero-dep MCP tools</h3>
+            <p>Our own auditable servers (raw stdio + <code>fetch</code>) — runtime add-ons, <b>not</b> baked into the image.</p></div>
+        </div>
+        <div class="footnote r"><b>BLUEPRINT</b> = stock in the NemoClaw blueprint · <b>MODIFIED</b> = a blueprint capability re-worked here (Firecrawl re-baked into the 2026.6.10 image via a vendored patch) · <b>ADDED</b> = built new in this repo.</div>
+      </section>
+
+      <!-- 5 · ARCHITECTURE -->
       <section class="slide">
         <div class="head r">
           <div class="eyebrow">How it's built</div>
@@ -314,36 +391,7 @@
         <div class="archnote r">Every outbound request is routed through the proxy — allowed only if a network policy names the host. <b>Non-root</b>, <b>gateway-auth</b>, and <b>runtime secrets</b> are all inherited from stock NemoClaw. Since 2026-06-27 the sandbox onboards from a <b>thin 2026.6.10 image</b> — the production base + one baked plugin (Firecrawl), enabled by a vendored, fail-closed 1-line NemoClaw patch; posture otherwise unchanged.</div>
       </section>
 
-      <!-- 4 · SECURITY POSTURE -->
-      <section class="slide">
-        <div class="head r">
-          <div class="eyebrow">Trust model</div>
-          <h2>Secure by inheritance — posture ≈ stock NemoClaw</h2>
-          <div class="rule"></div>
-        </div>
-        <div class="two">
-          <div class="panelbox r">
-            <h3>Preserved controls</h3>
-            <ul class="chklist">
-              <li><b>Non-root</b> execution as uid 998</li>
-              <li><b>Gateway auth</b> via <code>nemoclaw-start</code></li>
-              <li><b>Deny-by-default</b> L7 egress proxy — the single authority</li>
-              <li><b>Runtime-injected secrets</b> — no keys in image layers</li>
-              <li><b>Telegram pairing</b> — inbound needs manual approval</li>
-            </ul>
-          </div>
-          <div class="panelbox delta r">
-            <h3>The deliberate deltas</h3>
-            <ul class="chklist dot">
-              <li><b>Firecrawl <code>web_fetch</code></b>: the sandbox still talks to <b>one allowlisted host</b> (<code>api.firecrawl.dev</code>) — Firecrawl's cloud fetches the page on finn's behalf. Net effect: the agent reads <b>any public URL</b> without widening the firewall.</li>
-              <li>Add-ons are <b>read-only by default</b>; writes (calendar, Notion) are an explicit opt-in.</li>
-              <li>Bounded by: cloud fetcher can't reach the sandbox's internal network; read-only, research-only scope.</li>
-            </ul>
-          </div>
-        </div>
-      </section>
-
-      <!-- 5 · ONE FLOW -->
+      <!-- 6 · ONE FLOW -->
       <section class="slide">
         <div class="head r">
           <div class="eyebrow">How it works</div>
@@ -378,37 +426,11 @@
         </div>
       </section>
 
-      <!-- 6 · PROACTIVE LAYER -->
-      <section class="slide">
-        <div class="head r">
-          <div class="eyebrow">The proactive layer</div>
-          <h2>Proactive event intelligence
-            <span class="statusbanner">✅ live — 3 loops</span></h2>
-          <div class="rule"></div>
-        </div>
-        <p class="r" style="margin-bottom:16px">A scheduled layer that researches <b>Singapore</b> AI events (regional APAC = a speakers/trends watch), keeps <b>Notion as the source of truth</b>, and pushes a weekly digest. Producer loops write to Notion; the digest reads from it. A strict <b>ownership matrix</b> applies: loops write facts + cadence columns only; decisions stay human.</p>
-        <div class="pchain r">
-          <div class="pnode"><div class="pk">Schedule</div><h4>OpenClaw cron</h4><p>native on 2026.6.x — radar daily 09:00 · trends daily 09:30 (4-topic rotation) · digest Mon 10:00</p></div>
-          <div class="parrow">→</div>
-          <div class="pnode"><div class="pk">Producer</div><h4>Conf radar</h4><p>drains the due queue, ≤8 events / run; writes cadence + changes</p></div>
-          <div class="parrow">→</div>
-          <div class="pnode src"><div class="pk">Store</div><h4>Notion</h4><p>durable, human-curatable source of truth</p></div>
-          <div class="parrow">→</div>
-          <div class="pnode"><div class="pk">Consumer</div><h4>Weekly digest</h4><p>reads what producers wrote</p></div>
-          <div class="parrow">→</div>
-          <div class="pnode"><div class="pk">Deliver</div><h4>Telegram</h4><p>digest + trends summary · ⚠️ backlog alert</p></div>
-        </div>
-        <div class="blocks r">
-          <div class="block"><div class="bt">BLOCKER 1 — collapsed by the upgrade</div><p>Pinned cron couldn't drive tools → <b>moved the pin</b>: OpenClaw 2026.6.10 (via a vendored, fail-closed 1-line NemoClaw patch) restored native scheduled tool-calling. All three loops <b>run live in the gateway</b> — heartbeats + digest observed over Telegram.</p></div>
-          <div class="block"><div class="bt">BLOCKER 2 — retired by measurement</div><p>The 120B executor couldn't loop a list → prompts were <b>one item per run</b> (<b>strong model authors, weak model executes</b>). Measured on Kimi K2.6: a 5-event batch ran <b>85 s (~17 s/event)</b> vs <b>~57 s</b> for one cold single — 5 distinct research passes, 5 Notion writes, <b>verified by effects</b>. Scaffold dropped 2026-07-10; the loops now drain the due queue. <b>A stronger model made the scaffold unnecessary.</b></p></div>
-        </div>
-      </section>
-
       <!-- 7 · SEEN LIVE -->
       <section class="slide">
         <div class="head r">
           <div class="eyebrow">Seen live</div>
-          <h2>Three days of loops, unattended</h2>
+          <h2>Impact and Insights: Three days of loops, unattended</h2>
           <div class="rule"></div>
         </div>
         <div class="seen">
@@ -425,24 +447,67 @@
         </div>
       </section>
 
-      <!-- 8 · DEPTH OF STACK -->
-      <section class="slide dense">
+      <!-- 8 · PROACTIVE LAYER -->
+      <section class="slide">
         <div class="head r">
-          <div class="eyebrow">The hard parts</div>
-          <h2>What made it hard — depth of stack</h2>
+          <div class="eyebrow">The proactive layer</div>
+          <h2>Impact and Insights: Proactive event intelligence
+            <span class="statusbanner">✅ live — 3 loops</span></h2>
           <div class="rule"></div>
         </div>
-        <div class="chips">
-          <div class="chip r"><h3><span class="k">›</span> Tool calls blocked by the sandbox netns</h3><p><b>Felt like:</b> the agent reporting <i>"I can't reach your calendar"</i> — while every test we ran said the calendar tool was fine. <b>Why:</b> the sandbox runs each helper tool inside a sealed private network (a <i>netns</i>) with its settings stripped — and our tests ran <i>outside</i> the seal, so they always passed. <b>Fix:</b> the tool reads the network settings off its parent process and relaunches itself with them.</p></div>
-          <div class="chip r"><h3><span class="k">›</span> Health probes that false-negative</h3><p><b>Felt like:</b> every standard "is it up?" check said <b>down</b> — while the agent was still replying normally on Telegram. <b>Why:</b> that same sealed network hides the server from outside probes; they can't see in. <b>Fix / lesson:</b> trust the server's <b>own log</b>, never the probe — acting on the false "down" would have restarted a healthy service in a loop.</p></div>
-          <div class="chip r"><h3><span class="k">›</span> New MCP tool not picked up</h3><p><b>Felt like:</b> we installed the calendar tool and the config listed it — the agent still said it didn't exist. <b>Why:</b> the agent builds its tool list once and <b>caches</b> it; a settings reload updates the file, not the cache — like an app that won't appear until you reboot. <b>Fix:</b> a full restart of the agent's gateway (and even <i>finding</i> the right process to restart had a trap).</p></div>
-          <div class="chip r"><h3><span class="k">›</span> Personal-account sign-in</h3><p><b>Felt like:</b> connecting a personal Outlook calendar should be simple — but the server-style credentials corporate apps use <b>don't exist</b> for personal accounts (no company behind them). <b>Fix:</b> a one-time, phone-style <b>device-code</b> sign-in mints a long-lived token, scoped to the minimum — read-only unless write access is explicitly switched on.</p></div>
-          <div class="chip r" style="grid-column:1/-1"><h3><span class="k">›</span> The model that thought itself to death</h3><p><b>Felt like:</b> the weekly digest died with <i>"couldn't generate a response"</i> — after doing all its reading perfectly. <b>Why:</b> the model <b>thinks out loud into the same word budget as its answer</b> — one long think left <b>zero</b> for the reply, and the cut-off bypasses retries. <b>Fix:</b> 4× the output budget — thinking room is answer room.</p></div>
+        <div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:22px">
+        <p class="r">A scheduled layer that researches <b>Singapore</b> AI events (regional APAC = a speakers/trends watch), keeps <b>Notion as the source of truth</b>, and pushes a weekly digest. Producer loops write to Notion; the digest reads from it. A strict <b>ownership matrix</b> applies: loops write facts + cadence columns only; decisions stay human.</p>
+        <div class="pchain r">
+          <div class="pnode"><div class="pk">Schedule</div><h4>OpenClaw cron</h4><p>native on 2026.6.x — radar daily 09:00 · trends daily 09:30 (4-topic rotation) · digest Mon 10:00</p></div>
+          <div class="parrow">→</div>
+          <div class="pnode"><div class="pk">Producer</div><h4>Conf radar</h4><p>drains the due queue, ≤8 events / run; writes cadence + changes</p></div>
+          <div class="parrow">→</div>
+          <div class="pnode src"><div class="pk">Store</div><h4>Notion</h4><p>durable, human-curatable source of truth</p></div>
+          <div class="parrow">→</div>
+          <div class="pnode"><div class="pk">Consumer</div><h4>Weekly digest</h4><p>reads what producers wrote</p></div>
+          <div class="parrow">→</div>
+          <div class="pnode"><div class="pk">Deliver</div><h4>Telegram</h4><p>digest + trends summary · ⚠️ backlog alert</p></div>
         </div>
-        <div class="footnote r">Five bugs across five layers — sandbox networking, process lifecycle, runtime caching, consumer OAuth, and the model's own output budget. Full technical write-ups: <code>docs/LEARNINGS.md</code>.</div>
+        </div>
       </section>
 
-      <!-- 9 · NEXT STEPS -->
+      <!-- 9 · INSIGHTS -->
+      <section class="slide">
+        <div class="head r">
+          <div class="eyebrow">Learnings</div>
+          <h2>Three insights</h2>
+          <div class="rule"></div>
+        </div>
+        <div class="ins">
+          <div class="insrow r"><div class="num">1</div><div>
+            <div class="it">OpenClaw's simplicity vs. NemoClaw's security</div>
+            <ul>
+              <li>The sandbox builds networking layers on top of a simple agent runtime, which makes customisation far harder — adding a Notion MCP connector is an involved step!</li>
+              <li>Is the trade-off worth it when there are other ways to meet the security goal? E.g. Meta's <b>Agents Rule of Two</b>: an agent gets at most two of <i>untrusted inputs · private data · external actions</i>.</li>
+              <li><b>Recommend:</b> clear guidelines in a skill for onboarding new MCP connectors via NemoClaw (covering OpenClaw / OpenShell).</li>
+            </ul>
+          </div></div>
+          <div class="insrow r"><div class="num">2</div><div>
+            <div class="it">Keeping dependencies current is real work</div>
+            <ul>
+              <li>OpenClaw ships roughly weekly, so NemoClaw keeping pace with new OpenClaw releases matters — at one point my NemoClaw was running OpenClaw 2026.5.27 while 2026.6.10 was available.</li>
+              <li>With a modified NemoClaw Dockerfile, the question kept recurring: update OpenClaw, or work around it in the Dockerfile and other mods?</li>
+              <li><b>Recommend:</b> a tough one — beyond accelerating NemoClaw updates to keep pace with its core dependencies.</li>
+            </ul>
+          </div></div>
+          <div class="insrow r"><div class="num">3</div><div>
+            <div class="it">A 24/7 self-managed agent has a real bill</div>
+            <ul>
+              <li>An always-on VM on AWS buys uptime — but coupled with LLM API spend, it runs over S$1 a day.</li>
+              <li>Do I use it enough to justify the added cost, versus what Claude or ChatGPT already provide?</li>
+              <li><b>Recommend:</b> a skill that recommends deployment options by budget — NVIDIA Brev or AWS; NIM or OpenRouter.</li>
+            </ul>
+          </div></div>
+        </div>
+        <div class="footnote r">Reference: Meta, <i>Practical AI agent security</i> — the Agents Rule of Two.</div>
+      </section>
+
+      <!-- 10 · NEXT STEPS -->
       <section class="slide">
         <div class="head r">
           <div class="eyebrow">Where it goes</div>
