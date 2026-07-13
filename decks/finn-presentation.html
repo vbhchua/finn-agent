@@ -157,6 +157,11 @@
   .chip h3{font-size:17px;font-weight:700;margin-bottom:7px;letter-spacing:-.2px;display:flex;gap:9px;align-items:center}
   .chip h3 .k{color:var(--green-d)}
   .chip p{font-size:14px;line-height:1.45;color:var(--ink2)}
+  /* dense variant — 5 chips on one 16:9 slide */
+  .slide.dense .chips{gap:12px}
+  .slide.dense .chip{padding:13px 18px}
+  .slide.dense .chip h3{font-size:16px;margin-bottom:5px}
+  .slide.dense .chip p{font-size:13px;line-height:1.4}
   .steps-list{display:flex;flex-direction:column;gap:14px;flex:1;justify-content:center}
   .nstep{display:flex;gap:18px;align-items:flex-start;background:var(--panel);border:1px solid var(--line);
     border-radius:13px;padding:17px 20px}
@@ -393,7 +398,7 @@
       </section>
 
       <!-- 7 · DEPTH OF STACK -->
-      <section class="slide">
+      <section class="slide dense">
         <div class="head r">
           <div class="eyebrow">The hard parts</div>
           <h2>What made it hard — depth of stack</h2>
@@ -404,8 +409,9 @@
           <div class="chip r"><h3><span class="k">›</span> Health checks that lie</h3><p><b>Felt like:</b> every standard "is it up?" check said <b>down</b> — while the agent was still replying normally on Telegram. <b>Why:</b> that same sealed network hides the server from outside probes; they can't see in. <b>Fix / lesson:</b> trust the server's <b>own log</b>, never the probe — acting on the false "down" would have restarted a healthy service in a loop.</p></div>
           <div class="chip r"><h3><span class="k">›</span> The invisible new tool</h3><p><b>Felt like:</b> we installed the calendar tool and the config listed it — the agent still said it didn't exist. <b>Why:</b> the agent builds its tool list once and <b>caches</b> it; a settings reload updates the file, not the cache — like an app that won't appear until you reboot. <b>Fix:</b> a full restart of the agent's gateway (and even <i>finding</i> the right process to restart had a trap).</p></div>
           <div class="chip r"><h3><span class="k">›</span> Personal-account sign-in</h3><p><b>Felt like:</b> connecting a personal Outlook calendar should be simple — but the server-style credentials corporate apps use <b>don't exist</b> for personal accounts (no company behind them). <b>Fix:</b> a one-time, phone-style <b>device-code</b> sign-in mints a long-lived token, scoped to the minimum — read-only unless write access is explicitly switched on.</p></div>
+          <div class="chip r" style="grid-column:1/-1"><h3><span class="k">›</span> The model that thought itself to death</h3><p><b>Felt like:</b> the weekly digest died with <i>"couldn't generate a response"</i> — after doing all its reading perfectly. <b>Why:</b> the model <b>thinks out loud into the same word budget as its answer</b> — one long think left <b>zero</b> for the reply, and the cut-off bypasses retries. <b>Fix:</b> 4× the output budget — thinking room is answer room.</p></div>
         </div>
-        <div class="footnote r">Four bugs across four layers — sandbox networking, process lifecycle, runtime caching, and consumer OAuth. Full technical write-ups: <code>docs/LEARNINGS.md</code>.</div>
+        <div class="footnote r">Five bugs across five layers — sandbox networking, process lifecycle, runtime caching, consumer OAuth, and the model's own output budget. Full technical write-ups: <code>docs/LEARNINGS.md</code>.</div>
       </section>
 
       <!-- 8 · NEXT STEPS -->
